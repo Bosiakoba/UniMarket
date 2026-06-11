@@ -1,0 +1,53 @@
+# UniMarket Admin Worker
+
+Cloudflare Worker dashboard for reviewing **seller applications** and **verified badge** requests. It proxies the UniMarket API admin queue and can run optional **Workers AI** assist on student ID submissions.
+
+## Prerequisites
+
+1. UniMarket API running with `Admin__ApiKey` set in `.env` (same value the worker uses).
+2. API reachable from Cloudflare — use a public URL or [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to your home server (`192.168.0.165:5080` is fine for local `wrangler dev` only).
+
+## Setup
+
+```bash
+cd cloudflare/admin-worker
+npm install
+wrangler secret put ADMIN_API_KEY
+```
+
+Paste the same key as `Admin__ApiKey` on the API server.
+
+Update `wrangler.toml` `UNIMARKET_API_URL` to your public API base (no trailing slash).
+
+## Local dev
+
+```bash
+npm run dev
+```
+
+Open the URL Wrangler prints (usually `http://localhost:8787`).
+
+## Deploy
+
+```bash
+npm run deploy
+```
+
+## Admin API (used by the worker)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/verification-requests?status=Pending` | Queue list |
+| GET | `/api/admin/verification-requests/{id}` | Request detail |
+| POST | `/api/admin/verification-requests/{id}/approve` | Approve |
+| POST | `/api/admin/verification-requests/{id}/reject` | Reject |
+| POST | `/api/admin/verification-requests/{id}/ai-review` | Save AI summary |
+
+All admin routes require header `X-Admin-Key`.
+
+## Request types
+
+- `seller_application` — student ID + store name → sets `User.IsSeller = true` when approved
+- `verified_badge` — performance criteria met → sets `User.IsVerified = true` when approved
+
+Both use the same admin queue and dashboard.
