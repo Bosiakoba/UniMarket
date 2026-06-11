@@ -9,14 +9,17 @@ namespace UniMarket.Api.Controllers;
 
 [ApiController]
 [Route("api/users")]
-public class UsersController(AppDbContext db, CurrentUserService currentUser) : ControllerBase
+public class UsersController(
+    AppDbContext db,
+    CurrentUserService currentUser,
+    VerificationQueueService verificationQueue) : ControllerBase
 {
     [HttpGet("me")]
     public async Task<ActionResult<UserProfileDto>> GetMe(CancellationToken ct)
     {
         var (user, error) = await RequireUserAsync(ct);
         if (error is not null) return error;
-        return Ok(UserProfileMapper.ToDto(user!));
+        return Ok(await ToProfileAsync(user!, ct));
     }
 
     [HttpPut("me")]
@@ -40,7 +43,7 @@ public class UsersController(AppDbContext db, CurrentUserService currentUser) : 
         }
 
         await db.SaveChangesAsync(ct);
-        return Ok(UserProfileMapper.ToDto(user!));
+        return Ok(await ToProfileAsync(user!, ct));
     }
 
     [HttpPost("seller-application")]
@@ -51,16 +54,39 @@ public class UsersController(AppDbContext db, CurrentUserService currentUser) : 
         var (user, error) = await RequireUserAsync(ct);
         if (error is not null) return error;
 
+        if (user!.IsSeller)
+        {
+            return BadRequest(new { message = "You are already an approved seller." });
+        }
+
+        var pending = await verificationQueue.GetLatestAsync(
+            user.Id,
+            VerificationQueueService.TypeSellerApplication,
+            ct);
+
+        if (pending?.Status == "Pending")
+        {
+            return BadRequest(new { message = "Your seller application is already under review." });
+        }
+
+        var storeName = request.StoreName?.Trim();
+        if (string.IsNullOrWhiteSpace(storeName))
+        {
+            return BadRequest(new { message = "Store name is required." });
+        }
+
         db.VerificationRequests.Add(new VerificationRequest
         {
             Id = Guid.NewGuid().ToString("N"),
-            UserId = user!.Id,
+            UserId = user.Id,
+            RequestType = VerificationQueueService.TypeSellerApplication,
             Status = "Pending",
-            IdDocumentUrl = request.IdDocumentUrl,
+            StoreName = storeName,
+            IdDocumentUrl = request.IdDocumentUrl?.Trim(),
         });
 
         await db.SaveChangesAsync(ct);
-        return Ok(new { status = "Pending" });
+        return Ok(new { status = "Pending", requestType = VerificationQueueService.TypeSellerApplication });
     }
 
     [HttpPost("verify-badge")]
@@ -74,6 +100,21 @@ public class UsersController(AppDbContext db, CurrentUserService currentUser) : 
             return BadRequest(new { message = "Apply to sell first." });
         }
 
+        if (user.IsVerified)
+        {
+            return BadRequest(new { message = "You already have the verified badge." });
+        }
+
+        var pending = await verificationQueue.GetLatestAsync(
+            user.Id,
+            VerificationQueueService.TypeVerifiedBadge,
+            ct);
+
+        if (pending?.Status == "Pending")
+        {
+            return BadRequest(new { message = "Your verification badge request is already under review." });
+        }
+
         var activeListings = await db.Listings.CountAsync(
             l => l.UserId == user.Id && l.Status == "active", ct);
 
@@ -82,9 +123,16 @@ public class UsersController(AppDbContext db, CurrentUserService currentUser) : 
             return BadRequest(new { message = "Need at least 3 active listings." });
         }
 
-        user.IsVerified = true;
+        db.VerificationRequests.Add(new VerificationRequest
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            UserId = user.Id,
+            RequestType = VerificationQueueService.TypeVerifiedBadge,
+            Status = "Pending",
+        });
+
         await db.SaveChangesAsync(ct);
-        return Ok(new { isVerified = true });
+        return Ok(new { status = "Pending", requestType = VerificationQueueService.TypeVerifiedBadge });
     }
 
     private async Task<(User? User, ActionResult? Error)> RequireUserAsync(CancellationToken ct)
@@ -96,5 +144,14 @@ public class UsersController(AppDbContext db, CurrentUserService currentUser) : 
 
         var user = await db.Users.FindAsync([currentUser.UserId!], ct);
         return user is null ? (null, NotFound()) : (user, null);
+    }
+
+    private async Task<UserProfileDto> ToProfileAsync(User user, CancellationToken ct)
+    {
+        var statuses = await verificationQueue.ResolveUserStatusesAsync(user, ct);
+        return UserProfileMapper.ToDto(
+            user,
+            statuses.SellerApplication,
+            statuses.VerificationBadge);
     }
 }

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using UniMarket.Api.DTOs;
 using UniMarket.Api.Models;
 
@@ -6,7 +5,10 @@ namespace UniMarket.Api.Services;
 
 public static class UserProfileMapper
 {
-    public static UserProfileDto ToDto(User user) =>
+    public static UserProfileDto ToDto(
+        User user,
+        string sellerApplicationStatus,
+        string verificationBadgeStatus) =>
         new(
             user.Id,
             user.FirebaseUid,
@@ -21,6 +23,8 @@ public static class UserProfileMapper
             user.Phone,
             user.ProfileComplete,
             ParseCategories(user.InterestCategoriesJson),
+            sellerApplicationStatus,
+            verificationBadgeStatus,
             user.CreatedAt);
 
     public static IReadOnlyList<string> ParseCategories(string? json)
@@ -32,14 +36,15 @@ public static class UserProfileMapper
 
         try
         {
-            return JsonSerializer.Deserialize<List<string>>(json) ?? [];
+            return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? [];
         }
-        catch (JsonException)
+        catch (System.Text.Json.JsonException)
         {
             return Array.Empty<string>();
         }
     }
 
     public static string SerializeCategories(IEnumerable<string> categories) =>
-        JsonSerializer.Serialize(categories.Where(c => !string.IsNullOrWhiteSpace(c)).Distinct());
+        System.Text.Json.JsonSerializer.Serialize(
+            categories.Where(c => !string.IsNullOrWhiteSpace(c)).Distinct());
 }

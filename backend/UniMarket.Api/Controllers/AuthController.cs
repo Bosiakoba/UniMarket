@@ -12,7 +12,8 @@ namespace UniMarket.Api.Controllers;
 public class AuthController(
     AppDbContext db,
     FirebaseAuthService firebaseAuth,
-    UserProvisioningService userProvisioning) : ControllerBase
+    UserProvisioningService userProvisioning,
+    VerificationQueueService verificationQueue) : ControllerBase
 {
     [HttpPost("session")]
     public async Task<ActionResult<UserProfileDto>> Session(
@@ -66,6 +67,10 @@ public class AuthController(
         }
 
         HttpContext.Items["UserId"] = user.Id;
-        return Ok(UserProfileMapper.ToDto(user));
+        var statuses = await verificationQueue.ResolveUserStatusesAsync(user, ct);
+        return Ok(UserProfileMapper.ToDto(
+            user,
+            statuses.SellerApplication,
+            statuses.VerificationBadge));
     }
 }

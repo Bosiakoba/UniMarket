@@ -77,6 +77,21 @@ GET /health
 
 Response includes `integrations.firebase.configured` and `integrations.cloudflare.d1|r2.configured`.
 
+## Admin verification queue
+
+Seller applications and verified badge requests share one queue (`VerificationRequest`).
+
+| `.env` key | Purpose |
+|------------|---------|
+| `Admin__ApiKey` | Secret for `X-Admin-Key` on `/api/admin/*` routes |
+
+Flutter submits:
+
+- `POST /api/users/seller-application` → pending until admin approves (`IsSeller`)
+- `POST /api/users/verify-badge` → pending until admin approves (`IsVerified`)
+
+Admin dashboard: see `cloudflare/admin-worker/README.md`.
+
 ## Railway (later)
 
 Set `ASPNETCORE_URLS=http://0.0.0.0:8080` and Railway secrets using the same `Firebase__*` / `Cloudflare__*` keys from `.env.example`.

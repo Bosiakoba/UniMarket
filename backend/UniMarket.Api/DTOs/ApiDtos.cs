@@ -16,7 +16,32 @@ public record UserProfileDto(
     string? Phone,
     bool ProfileComplete,
     IReadOnlyList<string> InterestCategories,
+    string SellerApplicationStatus,
+    string VerificationBadgeStatus,
     DateTime CreatedAt);
+
+public record VerificationRequestDto(
+    string Id,
+    string UserId,
+    string RequestType,
+    string Status,
+    string? StoreName,
+    string? IdDocumentUrl,
+    string? AiReviewSummary,
+    string? AiRecommendation,
+    string? AdminNotes,
+    DateTime SubmittedAt,
+    DateTime? ProcessedAt,
+    string? UserFullName,
+    string? UserEmail,
+    string? University,
+    string? Campus,
+    bool IsSeller,
+    bool IsVerified);
+
+public record AdminRejectRequest(string? Notes);
+
+public record AdminAiReviewRequest(string Summary, string? Recommendation);
 
 public record UpdateProfileRequest(
     string? FullName,

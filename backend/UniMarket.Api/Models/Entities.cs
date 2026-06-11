@@ -81,8 +81,14 @@ public class VerificationRequest
 {
     public string Id { get; set; } = string.Empty;
     public string UserId { get; set; } = string.Empty;
+    public User? User { get; set; }
+    public string RequestType { get; set; } = "seller_application";
     public string Status { get; set; } = "Pending";
+    public string? StoreName { get; set; }
     public string? IdDocumentUrl { get; set; }
+    public string? AiReviewSummary { get; set; }
+    public string? AiRecommendation { get; set; }
+    public string? AdminNotes { get; set; }
     public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ProcessedAt { get; set; }
 }

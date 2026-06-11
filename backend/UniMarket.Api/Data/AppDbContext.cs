@@ -21,6 +21,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     {
         modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
         modelBuilder.Entity<User>().HasIndex(u => u.FirebaseUid);
+        modelBuilder.Entity<VerificationRequest>().HasOne(r => r.User)
+            .WithMany()
+            .HasForeignKey(r => r.UserId);
         modelBuilder.Entity<WishlistItem>().HasKey(w => new { w.UserId, w.ListingId });
     }
 }

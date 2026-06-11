@@ -13,6 +13,8 @@ builder.Services.Configure<FirebaseSettings>(
     builder.Configuration.GetSection(FirebaseSettings.SectionName));
 builder.Services.Configure<CloudflareSettings>(
     builder.Configuration.GetSection(CloudflareSettings.SectionName));
+builder.Services.Configure<AdminSettings>(
+    builder.Configuration.GetSection(AdminSettings.SectionName));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -29,6 +31,7 @@ builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<ListingMapper>();
 builder.Services.AddScoped<FirebaseAuthService>();
 builder.Services.AddScoped<UserProvisioningService>();
+builder.Services.AddScoped<VerificationQueueService>();
 builder.Services.AddScoped<R2StorageService>();
 builder.Services.AddScoped<SaleConfirmationService>();
 
