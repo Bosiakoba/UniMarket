@@ -103,15 +103,20 @@ class _UniMarketAppState extends State<UniMarketApp> {
                           AppRoutes.signIn: (_) => SignInScreen(
                                 onSignedIn: bootstrapAfterSignIn,
                               ),
-                          AppRoutes.signUp: (_) => const SignUpScreen(),
+                          AppRoutes.signUp: (_) => SignUpScreen(
+                                onSignedIn: bootstrapAfterSignIn,
+                              ),
                           AppRoutes.forgotPassword: (_) =>
                               const ForgotPasswordScreen(),
-                          AppRoutes.verification: (_) =>
-                              const VerificationScreen(),
+                          AppRoutes.verification: (_) => VerificationScreen(
+                                onReadyForHome: bootstrapAfterSignIn,
+                              ),
                           AppRoutes.profileCompletion: (_) =>
                               const ProfileCompletionScreen(),
                           AppRoutes.categorySelection: (_) =>
-                              const CategorySelectionScreen(),
+                              CategorySelectionScreen(
+                                onReadyForHome: bootstrapAfterSignIn,
+                              ),
                           AppRoutes.home: (_) => const MainShell(),
                           AppRoutes.messages: (_) => const MessagesScreen(),
                           AppRoutes.notifications: (_) =>

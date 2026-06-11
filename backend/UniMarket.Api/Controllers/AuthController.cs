@@ -66,21 +66,6 @@ public class AuthController(
         }
 
         HttpContext.Items["UserId"] = user.Id;
-        return Ok(ToProfile(user));
+        return Ok(UserProfileMapper.ToDto(user));
     }
-
-    private static UserProfileDto ToProfile(User user) =>
-        new(
-            user.Id,
-            user.FirebaseUid,
-            user.FullName,
-            user.Email,
-            user.Role,
-            user.IsSeller,
-            user.IsVerified,
-            user.AvatarUrl,
-            user.University,
-            user.Campus,
-            user.Phone,
-            user.CreatedAt);
 }

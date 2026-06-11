@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../features/messages/chat_screen.dart';
 import '../../api/api_client.dart';
+import '../../api/session_mode.dart';
 import '../../models/chat_message.dart';
 import '../../models/listing_availability.dart';
 import '../../models/listing_item.dart';
@@ -9,9 +10,7 @@ import '../../models/message_thread.dart';
 import '../mock/mock_listings.dart';
 
 class MessageStore extends ChangeNotifier {
-  MessageStore() {
-    resetToSeed();
-  }
+  MessageStore();
 
   final List<MessageThread> _threads = [];
 
@@ -71,11 +70,10 @@ class MessageStore extends ChangeNotifier {
       return existing;
     }
 
-    var threadId = 'thread-${sellerName.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
-    if (client != null && listing != null) {
-      try {
-        threadId = await client.openChat(listingId: listing.canonicalId);
-      } catch (_) {}
+    var threadId =
+        'thread-${sellerName.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
+    if (client != null && isLiveSession(client) && listing != null) {
+      threadId = await client.openChat(listingId: listing.canonicalId);
     }
 
     final thread = MessageThread(
@@ -95,17 +93,18 @@ class MessageStore extends ChangeNotifier {
     required String sellerName,
     ListingItem? listing,
     ApiClient? client,
+    String? currentUserId,
   }) async {
     final thread = await openThreadForSeller(
       sellerName: sellerName,
       listing: listing,
       client: client,
     );
-    if (client != null) {
+    if (client != null && isLiveSession(client)) {
       await refreshThreadMessages(
         threadId: thread.id,
         client: client,
-        currentUserId: client.devUserId,
+        currentUserId: currentUserId,
       );
     }
     if (!context.mounted) return;
@@ -121,27 +120,27 @@ class MessageStore extends ChangeNotifier {
     required ApiClient client,
     String? currentUserId,
   }) async {
+    if (!isLiveSession(client)) return;
+
     final thread = threadById(threadId);
     if (thread == null) return;
 
-    try {
-      final raw = await client.fetchChatMessages(threadId);
-      final userId = currentUserId ?? client.devUserId ?? '';
-      thread.messages
-        ..clear()
-        ..addAll(
-          raw.map(
-            (json) => ApiClient.messageFromJson(
-              json,
-              currentUserId: userId,
-            ),
+    final raw = await client.fetchChatMessages(threadId);
+    final userId = currentUserId ?? '';
+    thread.messages
+      ..clear()
+      ..addAll(
+        raw.map(
+          (json) => ApiClient.messageFromJson(
+            json,
+            currentUserId: userId,
           ),
-        );
-      thread.unread = thread.messages.any(
-        (m) => m.canRespondToSale,
+        ),
       );
-      notifyListeners();
-    } catch (_) {}
+    thread.unread = thread.messages.any(
+      (m) => m.canRespondToSale,
+    );
+    notifyListeners();
   }
 
   Future<void> afterSaleRecorded({
@@ -151,13 +150,13 @@ class MessageStore extends ChangeNotifier {
     ApiClient? client,
     String? currentUserId,
   }) async {
-    if (client != null) {
+    if (client != null && isLiveSession(client)) {
       for (final thread in _threads) {
         if (thread.listingId == listing.canonicalId) {
           await refreshThreadMessages(
             threadId: thread.id,
             client: client,
-            currentUserId: currentUserId ?? client.devUserId,
+            currentUserId: currentUserId,
           );
         }
       }
@@ -213,13 +212,13 @@ class MessageStore extends ChangeNotifier {
     final thread = threadById(threadId);
     if (thread == null) return 'Conversation not found.';
 
-    if (client != null) {
+    if (client != null && isLiveSession(client)) {
       try {
         await client.respondToSale(saleId: saleId, confirmed: confirmed);
         await refreshThreadMessages(
           threadId: threadId,
           client: client,
-          currentUserId: currentUserId ?? client.devUserId,
+          currentUserId: currentUserId,
         );
         return null;
       } catch (error) {
@@ -252,6 +251,11 @@ class MessageStore extends ChangeNotifier {
   }
 
   Future<void> syncFromApi(ApiClient client, {required String userId}) async {
+    if (!isLiveSession(client)) {
+      if (_threads.isEmpty) resetToSeed();
+      return;
+    }
+
     try {
       final rawChats = await client.fetchChats();
       _threads.clear();
@@ -282,7 +286,8 @@ class MessageStore extends ChangeNotifier {
       }
       notifyListeners();
     } catch (_) {
-      resetToSeed();
+      _threads.clear();
+      notifyListeners();
     }
   }
 
@@ -293,20 +298,35 @@ class MessageStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendMessage({
+  Future<String?> sendMessage({
     required String threadId,
     required String text,
     ListingItem? listing,
     ApiClient? client,
+    String? currentUserId,
   }) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty && listing == null) return;
+    if (trimmed.isEmpty && listing == null) return null;
 
     final thread = threadById(threadId);
-    if (thread == null) return;
+    if (thread == null) return 'Conversation not found.';
 
     if (listing != null) {
       thread.attachedListing = null;
+    }
+
+    if (client != null && isLiveSession(client) && trimmed.isNotEmpty) {
+      try {
+        await client.sendChatMessage(chatId: threadId, content: trimmed);
+        await refreshThreadMessages(
+          threadId: threadId,
+          client: client,
+          currentUserId: currentUserId,
+        );
+        return null;
+      } catch (error) {
+        return error.toString();
+      }
     }
 
     thread.messages.add(
@@ -319,17 +339,7 @@ class MessageStore extends ChangeNotifier {
       ),
     );
     notifyListeners();
-
-    if (client != null && trimmed.isNotEmpty) {
-      try {
-        await client.sendChatMessage(chatId: threadId, content: trimmed);
-        await refreshThreadMessages(
-          threadId: threadId,
-          client: client,
-          currentUserId: client.devUserId,
-        );
-      } catch (_) {}
-    }
+    return null;
   }
 
   void resetToSeed() {

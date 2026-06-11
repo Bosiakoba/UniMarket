@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import 'package:image_picker/image_picker.dart';
+
 import '../../core/models/seller_application.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/seller_store_scope.dart';
 import '../../core/widgets/uni_button.dart';
 import '../../core/widgets/uni_text_field.dart';
+import '../../core/widgets/user_session_scope.dart';
 import 'seller_application_status_screen.dart';
 import 'widgets/id_upload_card.dart';
 import 'widgets/seller_status_layout.dart';
@@ -30,6 +34,10 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
   final _emailController = TextEditingController();
   final _storeController = TextEditingController();
   bool _idUploaded = false;
+  String? _idDocumentPath;
+  var _submitting = false;
+
+  static final _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -39,7 +47,30 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final user = UserSessionScope.of(context).currentUser;
+    if (user == null) return;
+    if (_nameController.text.isEmpty) _nameController.text = user.fullName;
+    if (_emailController.text.isEmpty) _emailController.text = user.email;
+  }
+
+  Future<void> _pickIdDocument() async {
+    final file = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 82,
+    );
+    if (file == null) return;
+    setState(() {
+      _idDocumentPath = file.path;
+      _idUploaded = true;
+    });
+  }
+
+  Future<void> _submit() async {
+    if (_submitting) return;
+
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final store = _storeController.text.trim();
@@ -61,15 +92,43 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
       return;
     }
 
-    SellerStoreScope.of(context).submitSellerApplication(
-      SellerApplication(
-        fullName: name,
-        studentEmail: email,
-        storeName: store,
-        studentIdUploaded: true,
-        appliedAt: DateTime.now(),
-      ),
+    setState(() => _submitting = true);
+    final sellerStore = SellerStoreScope.of(context);
+    final client = ApiClientScope.of(context);
+    String? idDocumentUrl;
+
+    try {
+      if (_idDocumentPath != null) {
+        idDocumentUrl = await client.uploadListingPhoto(_idDocumentPath!);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      _showSnack(error.toString());
+      return;
+    }
+
+    final application = SellerApplication(
+      fullName: name,
+      studentEmail: email,
+      storeName: store,
+      studentIdUploaded: true,
+      appliedAt: DateTime.now(),
     );
+
+    final error = await sellerStore.submitSellerApplicationRemote(
+      data: application,
+      client: client,
+      idDocumentUrl: idDocumentUrl,
+    );
+
+    if (!mounted) return;
+    setState(() => _submitting = false);
+
+    if (error != null) {
+      _showSnack(error);
+      return;
+    }
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
@@ -169,7 +228,7 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
                           const SizedBox(height: 8),
                           IdUploadCard(
                             uploaded: _idUploaded,
-                            onTap: () => setState(() => _idUploaded = true),
+                            onTap: _pickIdDocument,
                           ),
                         ],
                       ),
@@ -203,7 +262,8 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
               child: UniButton(
                 label: 'Submit for review',
                 variant: UniButtonVariant.green,
-                onPressed: _submit,
+                isLoading: _submitting,
+                onPressed: _submitting ? null : _submit,
               ),
             ),
           ],

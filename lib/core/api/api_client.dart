@@ -70,6 +70,89 @@ class ApiClient {
     return _decodeObject(response, errorLabel: 'Session failed');
   }
 
+  Future<AppUser> updateProfile({
+    String? fullName,
+    String? university,
+    String? campus,
+    String? phone,
+    bool? markProfileComplete,
+    List<String>? interestCategories,
+  }) async {
+    final response = await http.put(
+      _uri('/api/users/me'),
+      headers: _headers,
+      body: jsonEncode({
+        if (fullName != null) 'fullName': fullName,
+        if (university != null) 'university': university,
+        if (campus != null) 'campus': campus,
+        'phone': ?phone,
+        'markProfileComplete': ?markProfileComplete,
+        'interestCategories': ?interestCategories,
+      }),
+    );
+    final json = _decodeObject(response, errorLabel: 'Could not update profile');
+    return ListingMapper.userFromJson(json);
+  }
+
+  Future<AppUser> fetchMe() async {
+    final response = await http.get(_uri('/api/users/me'), headers: _headers);
+    final json = _decodeObject(response, errorLabel: 'Could not load profile');
+    return ListingMapper.userFromJson(json);
+  }
+
+  Future<void> submitSellerApplication({
+    required String storeName,
+    String? idDocumentUrl,
+  }) async {
+    final response = await http.post(
+      _uri('/api/users/seller-application'),
+      headers: _headers,
+      body: jsonEncode({
+        'storeName': storeName,
+        'idDocumentUrl': ?idDocumentUrl,
+      }),
+    );
+    if (response.statusCode >= 400) {
+      throw ApiException(
+        'Seller application failed',
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  Future<AppUser> applyVerifyBadge() async {
+    final response = await http.post(
+      _uri('/api/users/verify-badge'),
+      headers: _headers,
+    );
+    if (response.statusCode >= 400) {
+      final decoded = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : null;
+      final message = decoded is Map && decoded['message'] is String
+          ? decoded['message'] as String
+          : 'Could not apply for verification badge';
+      throw ApiException(message, statusCode: response.statusCode);
+    }
+    return fetchMe();
+  }
+
+  Future<void> deleteListing(String listingId) async {
+    final response = await http.delete(
+      _uri('/api/listings/$listingId'),
+      headers: _headers,
+    );
+    if (response.statusCode >= 400) {
+      throw ApiException('Could not delete listing', statusCode: response.statusCode);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchMyReports() async {
+    final response = await http.get(_uri('/api/reports/mine'), headers: _headers);
+    final list = _decodeList(response, errorLabel: 'Could not load reports');
+    return list.cast<Map<String, dynamic>>();
+  }
+
   Future<String> uploadListingPhoto(String filePath) async {
     final request = http.MultipartRequest(
       'POST',
@@ -465,6 +548,11 @@ abstract final class ListingMapper {
   }
 
   static AppUser userFromJson(Map<String, dynamic> json) {
+    final categories = (json['interestCategories'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toSet() ??
+        const <String>{};
+
     return AppUser(
       id: json['id'] as String,
       email: json['email'] as String,
@@ -473,6 +561,8 @@ abstract final class ListingMapper {
       campus: json['campus'] as String? ?? 'Main Campus',
       phone: json['phone'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
+      interestCategories: categories,
+      profileComplete: json['profileComplete'] as bool? ?? false,
       firebaseUid: json['firebaseUid'] as String?,
       isSeller: json['isSeller'] as bool? ?? false,
       isVerified: json['isVerified'] as bool? ?? false,

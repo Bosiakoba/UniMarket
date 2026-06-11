@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../core/constants/verification_criteria.dart';
 import '../../core/data/stores/seller_store.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/seller_store_scope.dart';
 import '../../core/widgets/uni_button.dart';
 import '../../core/widgets/verified_badge.dart';
@@ -147,8 +148,18 @@ class _VerificationProgressView extends StatelessWidget {
         label: eligible ? 'Apply for verified badge' : 'Keep building trust',
         variant: UniButtonVariant.green,
         onPressed: eligible
-            ? () {
-                store.submitVerificationApplication();
+            ? () async {
+                final client = ApiClientScope.of(context);
+                final error = await store.submitVerificationApplication(
+                  client: client,
+                );
+                if (!context.mounted) return;
+                if (error != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(error)),
+                  );
+                  return;
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Verification submitted for review.'),

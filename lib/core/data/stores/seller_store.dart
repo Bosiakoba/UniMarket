@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../api/api_client.dart';
+import '../../api/session_mode.dart';
 import '../../models/app_user.dart';
 import '../../constants/app_assets.dart';
 import '../../constants/verification_criteria.dart';
@@ -176,6 +177,12 @@ class SellerStore extends ChangeNotifier {
     return [...activeListings, ...MockListings.items];
   }
 
+  List<ListingItem> listingsForSeller(String sellerName) {
+    return allListings
+        .where((listing) => listing.sellerName == sellerName)
+        .toList();
+  }
+
   SellerListingRecord? recordFor(String listingId) {
     for (final record in _records) {
       if (record.listing.id == listingId) return record;
@@ -236,7 +243,34 @@ class SellerStore extends ChangeNotifier {
     sellerApplication = data;
     sellerApplicationStatus = SellerApplicationStatus.pending;
     notifyListeners();
-    _simulateSellerApprovalReview();
+  }
+
+  Future<String?> submitSellerApplicationRemote({
+    required SellerApplication data,
+    required ApiClient client,
+    String? idDocumentUrl,
+  }) async {
+    sellerApplication = data;
+    sellerApplicationStatus = SellerApplicationStatus.pending;
+    notifyListeners();
+
+    if (!isLiveSession(client)) {
+      _simulateSellerApprovalReview();
+      return null;
+    }
+
+    try {
+      await client.submitSellerApplication(
+        storeName: data.storeName,
+        idDocumentUrl: idDocumentUrl,
+      );
+      return null;
+    } catch (error) {
+      sellerApplicationStatus = SellerApplicationStatus.none;
+      sellerApplication = null;
+      notifyListeners();
+      return error.toString();
+    }
   }
 
   void _simulateSellerApprovalReview() {
@@ -248,7 +282,40 @@ class SellerStore extends ChangeNotifier {
     });
   }
 
-  void submitVerificationApplication() {
+  Future<String?> submitVerificationApplication({ApiClient? client}) async {
+    if (!canApplyForVerification) {
+      return 'Complete the seller requirements first.';
+    }
+
+    verificationStatus = VerificationStatus.pending;
+    notifyListeners();
+
+    if (client == null || !isLiveSession(client)) {
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        verificationStatus = VerificationStatus.verified;
+        _refreshListingVerificationFlags();
+        notifyListeners();
+      });
+      return null;
+    }
+
+    try {
+      final user = await client.applyVerifyBadge();
+      verificationStatus = user.isVerified
+          ? VerificationStatus.verified
+          : VerificationStatus.pending;
+      _refreshListingVerificationFlags();
+      notifyListeners();
+      return null;
+    } catch (error) {
+      verificationStatus = VerificationStatus.none;
+      notifyListeners();
+      return error.toString();
+    }
+  }
+
+  @Deprecated('Use submitVerificationApplication')
+  void submitVerificationApplicationLocal() {
     if (!canApplyForVerification) return;
     verificationStatus = VerificationStatus.pending;
     notifyListeners();
@@ -507,7 +574,7 @@ class SellerStore extends ChangeNotifier {
     final index = _records.indexWhere((r) => r.listing.id == listingId);
     if (index == -1) return (error: 'Listing not found.', saleId: null);
 
-    if (client != null) {
+    if (client != null && isLiveSession(client)) {
       try {
         final result = await client.recordSale(
           listingId: listingId,
@@ -538,7 +605,7 @@ class SellerStore extends ChangeNotifier {
     final index = _records.indexWhere((r) => r.listing.id == listingId);
     if (index == -1) return 'Listing not found.';
 
-    if (client != null) {
+    if (client != null && isLiveSession(client)) {
       try {
         final updated = await client.restockListing(
           listingId: listingId,
@@ -574,7 +641,7 @@ class SellerStore extends ChangeNotifier {
     final index = _records.indexWhere((r) => r.listing.id == listingId);
     if (index == -1) return 'Listing not found.';
 
-    if (client != null) {
+    if (client != null && isLiveSession(client)) {
       try {
         final updated = await client.relistListing(listingId: listingId);
         _records[index] = _records[index].copyWithListing(updated);
@@ -685,6 +752,22 @@ class SellerStore extends ChangeNotifier {
         );
   }
 
+  Future<String?> deleteListingRemote({
+    required String listingId,
+    ApiClient? client,
+  }) async {
+    if (client != null && isLiveSession(client)) {
+      try {
+        await client.deleteListing(listingId);
+      } catch (error) {
+        return error.toString();
+      }
+    }
+
+    deleteListing(listingId);
+    return null;
+  }
+
   void deleteListing(String listingId) {
     _records.removeWhere((record) => record.listing.id == listingId);
     notifyListeners();
@@ -734,7 +817,9 @@ class SellerStore extends ChangeNotifier {
     notifyListeners();
 
     try {
-      client.devUserId = user.id;
+      if (!isLiveSession(client)) {
+        client.devUserId = user.id;
+      }
       final items = await client.fetchListings();
       _remoteCatalog = items;
       useRemoteCatalog = true;
@@ -745,7 +830,8 @@ class SellerStore extends ChangeNotifier {
       }
     } catch (error) {
       catalogSyncError = error.toString();
-      if (user.email.toLowerCase() == MockProfile.email.toLowerCase()) {
+      if (!isLiveSession(client) &&
+          user.email.toLowerCase() == MockProfile.email.toLowerCase()) {
         loadDemoSellerState(displayName: user.fullName, email: user.email);
       }
     } finally {

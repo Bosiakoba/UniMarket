@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../core/constants/category_visuals.dart';
-import '../../core/data/mock/mock_listings.dart';
+import '../../core/constants/market_categories.dart';
 import '../../core/models/listing_item.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -106,7 +106,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               if (hasQuery) ...[
                 CategoryChipRow(
-                  categories: MockListings.categories,
+                  categories: MarketCategories.feedCategories,
                   selected: _selectedCategory,
                   onSelected: (cat) => setState(() => _selectedCategory = cat),
                 ),
@@ -171,7 +171,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     const SizedBox(height: 28),
                     Text('Browse by category', style: AppTypography.bodyBold()),
                     const SizedBox(height: 12),
-                    ...MockListings.categories.where((c) => c != 'All').map(
+                    ...MarketCategories.listingCategories.map(
                       (cat) => ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: CategoryIcon(category: cat, size: 36),

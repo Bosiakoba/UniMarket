@@ -9,6 +9,7 @@ import '../../core/models/post_listing_draft.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/api/session_mode.dart';
 import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/seller_store_scope.dart';
 import '../../core/widgets/uni_button.dart';
@@ -244,7 +245,7 @@ class _PostListingScreenState extends State<PostListingScreen> {
 
     final bottom = MediaQuery.paddingOf(context).bottom;
     const stepLabels = ['Photos', 'Details', 'Pricing', 'Review'];
-    final useMockPhotos = ApiClientScope.of(context).idToken == null;
+    final useMockPhotos = !isLiveSession(ApiClientScope.of(context));
 
     return Scaffold(
       backgroundColor: AppColors.white,

@@ -13,6 +13,8 @@ public class User
     public string University { get; set; } = "State University";
     public string Campus { get; set; } = "Main Campus";
     public string? Phone { get; set; }
+    public bool ProfileComplete { get; set; }
+    public string InterestCategoriesJson { get; set; } = "[]";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<Listing> Listings { get; set; } = new List<Listing>();
 }

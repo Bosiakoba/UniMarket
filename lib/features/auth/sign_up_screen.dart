@@ -12,7 +12,9 @@ import '../../core/widgets/user_session_scope.dart';
 import '../../routes/app_routes.dart';
 
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({super.key});
+  const SignUpScreen({super.key, this.onSignedIn});
+
+  final Future<void> Function()? onSignedIn;
 
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
@@ -47,7 +49,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
-    Navigator.of(context).pushNamed(AppRoutes.verification);
+    final route = session.postAuthRoute(client);
+    if (route == AppRoutes.home) {
+      await widget.onSignedIn?.call();
+    }
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacementNamed(route);
   }
 
   @override

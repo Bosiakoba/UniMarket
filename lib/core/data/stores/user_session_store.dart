@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../api/api_client.dart';
 import '../../models/app_user.dart';
+import '../../navigation/onboarding_navigation.dart';
 import '../../services/firebase_auth_service.dart';
 
 class UserSessionStore extends ChangeNotifier {
@@ -11,6 +12,13 @@ class UserSessionStore extends ChangeNotifier {
   String? lastAuthError;
 
   bool get isLoggedIn => currentUser != null;
+
+  bool usesFirebaseAuth(ApiClient client) => client.idToken != null;
+
+  String postAuthRoute(ApiClient client) => OnboardingNavigation.routeFor(
+        user: currentUser,
+        usesFirebaseAuth: usesFirebaseAuth(client),
+      );
 
   static const demoEmail = 'alex.morgan@university.edu';
   static const jordanDemoEmail = 'jordan@university.edu';
@@ -47,6 +55,15 @@ class UserSessionStore extends ChangeNotifier {
       return FirebaseAuthService.mapAuthError(error);
     } catch (error) {
       lastAuthError = error.toString();
+      if (FirebaseAuthService.currentUser != null) {
+        await FirebaseAuthService.signOut();
+        client
+          ..idToken = null
+          ..devUserId = null;
+        currentUser = null;
+        notifyListeners();
+        return 'Could not reach the server. Check your connection and try again.';
+      }
       return _offlineFallback(client, email);
     } finally {
       isSigningIn = false;
@@ -77,6 +94,7 @@ class UserSessionStore extends ChangeNotifier {
         email: trimmedEmail,
         password: password,
       );
+      await FirebaseAuthService.sendEmailVerification();
       return await _completeApiSession(client);
     } on FirebaseAuthException catch (error) {
       return FirebaseAuthService.mapAuthError(error);
@@ -147,6 +165,90 @@ class UserSessionStore extends ChangeNotifier {
     required String campus,
     String? phone,
   }) {
+    _applyLocalProfile(
+      fullName: fullName,
+      university: university,
+      campus: campus,
+      phone: phone,
+    );
+  }
+
+  Future<String?> completeProfileWithApi({
+    required ApiClient client,
+    required String fullName,
+    required String university,
+    required String campus,
+    String? phone,
+  }) async {
+    final user = currentUser;
+    if (user == null) return 'Sign in to continue.';
+
+    if (fullName.trim().length < 2) {
+      return 'Enter your full name.';
+    }
+    if (university.trim().isEmpty || campus.trim().isEmpty) {
+      return 'Enter your university and campus.';
+    }
+
+    if (client.idToken == null) {
+      completeProfile(
+        fullName: fullName,
+        university: university,
+        campus: campus,
+        phone: phone,
+      );
+      currentUser = user.copyWith(profileComplete: true);
+      notifyListeners();
+      return null;
+    }
+
+    try {
+      currentUser = await client.updateProfile(
+        fullName: fullName.trim(),
+        university: university.trim(),
+        campus: campus.trim(),
+        phone: phone?.trim(),
+        markProfileComplete: true,
+      );
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
+  }
+
+  Future<String?> saveInterestCategoriesWithApi({
+    required ApiClient client,
+    required Set<String> categories,
+  }) async {
+    final user = currentUser;
+    if (user == null) return 'Sign in to continue.';
+    if (categories.isEmpty) {
+      return 'Pick at least one category.';
+    }
+
+    if (client.idToken == null) {
+      setInterestCategories(categories);
+      return null;
+    }
+
+    try {
+      currentUser = await client.updateProfile(
+        interestCategories: categories.toList(),
+      );
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
+  }
+
+  void _applyLocalProfile({
+    required String fullName,
+    required String university,
+    required String campus,
+    String? phone,
+  }) {
     final user = currentUser;
     if (user == null) return;
     currentUser = user.copyWith(
@@ -155,6 +257,7 @@ class UserSessionStore extends ChangeNotifier {
           university.trim().isEmpty ? user.university : university.trim(),
       campus: campus.trim().isEmpty ? user.campus : campus.trim(),
       phone: phone?.trim().isEmpty ?? true ? user.phone : phone?.trim(),
+      profileComplete: true,
     );
     notifyListeners();
   }
@@ -164,6 +267,37 @@ class UserSessionStore extends ChangeNotifier {
     if (user == null) return;
     currentUser = user.copyWith(interestCategories: categories);
     notifyListeners();
+  }
+
+  Future<String?> updateProfileWithApi({
+    required ApiClient client,
+    required String fullName,
+    required String university,
+    required String campus,
+    String? phone,
+  }) async {
+    if (client.idToken == null) {
+      updateProfile(
+        fullName: fullName,
+        university: university,
+        campus: campus,
+        phone: phone,
+      );
+      return null;
+    }
+
+    try {
+      currentUser = await client.updateProfile(
+        fullName: fullName.trim(),
+        university: university.trim(),
+        campus: campus.trim(),
+        phone: phone?.trim(),
+      );
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
   }
 
   void updateProfile({
@@ -211,9 +345,13 @@ class UserSessionStore extends ChangeNotifier {
       fullName: fullName.isEmpty ? 'Campus User' : fullName,
       university: 'State University',
       campus: 'Main Campus',
+      profileComplete: email == demoEmail || email == jordanDemoEmail,
+      interestCategories: email == demoEmail || email == jordanDemoEmail
+          ? const {'Electronics & Gadgets', 'Books & Stationery'}
+          : const {},
       createdAt: DateTime.now(),
       firebaseUid: null,
-      isSeller: email == demoEmail,
+      isSeller: email == demoEmail || email == jordanDemoEmail,
     );
   }
 }

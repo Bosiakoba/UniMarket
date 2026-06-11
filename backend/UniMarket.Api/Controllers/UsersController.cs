@@ -16,7 +16,7 @@ public class UsersController(AppDbContext db, CurrentUserService currentUser) : 
     {
         var (user, error) = await RequireUserAsync(ct);
         if (error is not null) return error;
-        return Ok(ToProfile(user!));
+        return Ok(UserProfileMapper.ToDto(user!));
     }
 
     [HttpPut("me")]
@@ -32,9 +32,15 @@ public class UsersController(AppDbContext db, CurrentUserService currentUser) : 
         if (!string.IsNullOrWhiteSpace(request.Campus)) user!.Campus = request.Campus.Trim();
         if (request.Phone is not null) user!.Phone = request.Phone.Trim();
         if (request.AvatarUrl is not null) user!.AvatarUrl = request.AvatarUrl.Trim();
+        if (request.MarkProfileComplete == true) user!.ProfileComplete = true;
+        if (request.InterestCategories is not null)
+        {
+            user!.InterestCategoriesJson =
+                UserProfileMapper.SerializeCategories(request.InterestCategories);
+        }
 
         await db.SaveChangesAsync(ct);
-        return Ok(ToProfile(user!));
+        return Ok(UserProfileMapper.ToDto(user!));
     }
 
     [HttpPost("seller-application")]
@@ -91,19 +97,4 @@ public class UsersController(AppDbContext db, CurrentUserService currentUser) : 
         var user = await db.Users.FindAsync([currentUser.UserId!], ct);
         return user is null ? (null, NotFound()) : (user, null);
     }
-
-    private static UserProfileDto ToProfile(User user) =>
-        new(
-            user.Id,
-            user.FirebaseUid,
-            user.FullName,
-            user.Email,
-            user.Role,
-            user.IsSeller,
-            user.IsVerified,
-            user.AvatarUrl,
-            user.University,
-            user.Campus,
-            user.Phone,
-            user.CreatedAt);
 }

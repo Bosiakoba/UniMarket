@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/uni_button.dart';
 import '../../core/widgets/uni_text_field.dart';
 import '../../core/widgets/user_session_scope.dart';
@@ -19,6 +20,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _universityController;
   late final TextEditingController _campusController;
   late final TextEditingController _phoneController;
+  var _saving = false;
 
   @override
   void initState() {
@@ -39,16 +41,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_saving) return;
+
     final session = UserSessionScope.of(context);
     if (!session.isLoggedIn) return;
 
-    session.updateProfile(
-      fullName: _nameController.text.trim(),
-      university: _universityController.text.trim(),
-      campus: _campusController.text.trim(),
-      phone: _phoneController.text.trim(),
+    setState(() => _saving = true);
+    final error = await session.updateProfileWithApi(
+      client: ApiClientScope.of(context),
+      fullName: _nameController.text,
+      university: _universityController.text,
+      campus: _campusController.text,
+      phone: _phoneController.text,
     );
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Profile updated.')),
@@ -94,7 +110,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             prefixIcon: Icons.phone_outlined,
           ),
           const SizedBox(height: AppSpacing.xl),
-          UniButton(label: 'Save changes', onPressed: _save),
+          UniButton(
+            label: 'Save changes',
+            isLoading: _saving,
+            onPressed: _saving ? null : _save,
+          ),
         ],
       ),
     );

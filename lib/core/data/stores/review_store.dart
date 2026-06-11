@@ -1,15 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 import '../../api/api_client.dart';
+import '../../api/session_mode.dart';
 import '../../models/listing_review.dart';
 import '../mock/mock_reviews.dart';
 
 class ReviewStore extends ChangeNotifier {
-  ReviewStore() {
-    for (final listingId in MockReviews.seededListingIds) {
-      _byListing[listingId] = List.of(MockReviews.forListing(listingId));
-    }
-  }
+  ReviewStore();
 
   final Map<String, List<ListingReview>> _byListing = {};
 
@@ -29,16 +26,22 @@ class ReviewStore extends ChangeNotifier {
       _byListing[_canonical(listingId)]?.length ?? 0;
 
   Future<void> loadFromApi(ApiClient client, String listingId) async {
+    if (!isLiveSession(client)) {
+      _seedIfEmpty(listingId);
+      return;
+    }
+
     try {
       final reviews = await client.fetchReviews(_canonical(listingId));
       _byListing[_canonical(listingId)] = reviews;
       notifyListeners();
     } catch (_) {
-      // Keep seeded/local reviews.
+      _byListing[_canonical(listingId)] = [];
+      notifyListeners();
     }
   }
 
-  Future<void> addReview({
+  Future<String?> addReview({
     required String listingId,
     required String authorName,
     required double rating,
@@ -46,7 +49,7 @@ class ReviewStore extends ChangeNotifier {
     ApiClient? client,
   }) async {
     final id = _canonical(listingId);
-    if (client != null) {
+    if (client != null && isLiveSession(client)) {
       try {
         await client.postReview(
           listingId: id,
@@ -54,8 +57,10 @@ class ReviewStore extends ChangeNotifier {
           comment: body,
         );
         await loadFromApi(client, id);
-        return;
-      } catch (_) {}
+        return null;
+      } catch (error) {
+        return error.toString();
+      }
     }
 
     final review = ListingReview(
@@ -67,16 +72,28 @@ class ReviewStore extends ChangeNotifier {
     );
     _byListing.putIfAbsent(id, () => []).insert(0, review);
     notifyListeners();
+    return null;
   }
 
-  void clear() {
+  void clear({bool reseedOfflineMocks = true}) {
     _byListing.clear();
-    for (final listingId in MockReviews.seededListingIds) {
-      _byListing[listingId] = List.of(MockReviews.forListing(listingId));
+    if (reseedOfflineMocks) {
+      for (final listingId in MockReviews.seededListingIds) {
+        _byListing[listingId] = List.of(MockReviews.forListing(listingId));
+      }
     }
     notifyListeners();
   }
 
+  void _seedIfEmpty(String listingId) {
+    final id = _canonical(listingId);
+    if (_byListing.containsKey(id)) return;
+    _byListing[id] = List.of(MockReviews.forListing(id));
+    notifyListeners();
+  }
+
   String _canonical(String listingId) =>
-      listingId.endsWith('-dup') ? listingId.substring(0, listingId.length - 4) : listingId;
+      listingId.endsWith('-dup')
+          ? listingId.substring(0, listingId.length - 4)
+          : listingId;
 }

@@ -4,13 +4,12 @@ import '../../core/constants/app_assets.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
-import '../../core/widgets/app_preferences_scope.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/brand_background.dart';
 import '../../core/widgets/figma_asset.dart';
 import '../../core/widgets/uni_button.dart';
 import '../../core/widgets/uni_text_field.dart';
 import '../../core/widgets/user_session_scope.dart';
-import '../../routes/app_routes.dart';
 
 class ProfileCompletionScreen extends StatefulWidget {
   const ProfileCompletionScreen({super.key});
@@ -28,6 +27,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   final _campusController = TextEditingController(text: 'Main Campus');
   final _phoneController = TextEditingController();
   var _hydrated = false;
+  var _saving = false;
 
   @override
   void didChangeDependencies() {
@@ -52,16 +52,34 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
     super.dispose();
   }
 
-  void _continue() {
+  Future<void> _continue() async {
+    if (_saving) return;
+
+    setState(() => _saving = true);
     final session = UserSessionScope.of(context);
-    session.completeProfile(
+    final client = ApiClientScope.of(context);
+
+    final error = await session.completeProfileWithApi(
+      client: client,
       fullName: _nameController.text,
       university: _universityController.text,
       campus: _campusController.text,
       phone: _phoneController.text,
     );
-    AppPreferencesScope.of(context).completeProfileSetup();
-    Navigator.of(context).pushReplacementNamed(AppRoutes.categorySelection);
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
+
+    Navigator.of(context).pushReplacementNamed(
+      session.postAuthRoute(client),
+    );
   }
 
   @override
@@ -112,6 +130,12 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       UniTextField(
+                        controller: _campusController,
+                        hint: 'Campus',
+                        prefixIcon: Icons.location_city_outlined,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      UniTextField(
                         controller: _phoneController,
                         hint: 'Phone number',
                         keyboardType: TextInputType.phone,
@@ -127,7 +151,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                   label: 'Continue',
                   width: 240,
                   variant: UniButtonVariant.secondary,
-                  onPressed: _continue,
+                  isLoading: _saving,
+                  onPressed: _saving ? null : _continue,
                 ),
               ),
             ],

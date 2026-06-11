@@ -33,6 +33,33 @@ class FirebaseAuthService {
     return user.getIdToken(forceRefresh);
   }
 
+  static Future<String?> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+      return null;
+    } on FirebaseAuthException catch (error) {
+      return mapAuthError(error);
+    } catch (error) {
+      return error.toString();
+    }
+  }
+
+  static Future<void> sendEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user != null && !user.emailVerified) {
+      await user.sendEmailVerification();
+    }
+  }
+
+  static Future<bool> reloadEmailVerified() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    await user.reload();
+    return _auth.currentUser?.emailVerified ?? false;
+  }
+
+  static bool get emailVerified => _auth.currentUser?.emailVerified ?? false;
+
   static Future<void> signOut() => _auth.signOut();
 
   static String? mapAuthError(FirebaseAuthException error) {

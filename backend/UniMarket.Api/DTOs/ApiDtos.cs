@@ -14,6 +14,8 @@ public record UserProfileDto(
     string University,
     string Campus,
     string? Phone,
+    bool ProfileComplete,
+    IReadOnlyList<string> InterestCategories,
     DateTime CreatedAt);
 
 public record UpdateProfileRequest(
@@ -21,7 +23,9 @@ public record UpdateProfileRequest(
     string? University,
     string? Campus,
     string? Phone,
-    string? AvatarUrl);
+    string? AvatarUrl,
+    bool? MarkProfileComplete,
+    IReadOnlyList<string>? InterestCategories);
 
 public record ListingDto(
     string Id,

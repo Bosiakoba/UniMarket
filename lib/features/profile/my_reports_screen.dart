@@ -3,10 +3,24 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/report_store_scope.dart';
 
-class MyReportsScreen extends StatelessWidget {
+class MyReportsScreen extends StatefulWidget {
   const MyReportsScreen({super.key});
+
+  @override
+  State<MyReportsScreen> createState() => _MyReportsScreenState();
+}
+
+class _MyReportsScreenState extends State<MyReportsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ReportStoreScope.of(context).syncFromApi(ApiClientScope.of(context));
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

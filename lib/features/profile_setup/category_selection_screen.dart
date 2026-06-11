@@ -5,6 +5,7 @@ import '../../core/constants/market_categories.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/brand_background.dart';
 import '../../core/widgets/figma_asset.dart';
 import '../../core/widgets/uni_button.dart';
@@ -12,7 +13,9 @@ import '../../core/widgets/user_session_scope.dart';
 import '../../routes/app_routes.dart';
 
 class CategorySelectionScreen extends StatefulWidget {
-  const CategorySelectionScreen({super.key});
+  const CategorySelectionScreen({super.key, this.onReadyForHome});
+
+  final Future<void> Function()? onReadyForHome;
 
   @override
   State<CategorySelectionScreen> createState() =>
@@ -20,10 +23,25 @@ class CategorySelectionScreen extends StatefulWidget {
 }
 
 class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
-  final Set<String> _selected = {
-    'Electronics & Gadgets',
-    'Books & Stationery',
-  };
+  late Set<String> _selected;
+  var _hydrated = false;
+  var _saving = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hydrated) return;
+    _hydrated = true;
+
+    final existing =
+        UserSessionScope.of(context).currentUser?.interestCategories ?? {};
+    _selected = existing.isEmpty
+        ? {
+            'Electronics & Gadgets',
+            'Books & Stationery',
+          }
+        : Set.of(existing);
+  }
 
   void _toggle(String category) {
     setState(() {
@@ -35,8 +53,31 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     });
   }
 
-  void _continue() {
-    UserSessionScope.of(context).setInterestCategories(_selected);
+  Future<void> _continue() async {
+    if (_saving || _selected.isEmpty) return;
+
+    setState(() => _saving = true);
+    final session = UserSessionScope.of(context);
+    final client = ApiClientScope.of(context);
+
+    final error = await session.saveInterestCategoriesWithApi(
+      client: client,
+      categories: _selected,
+    );
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
+
+    await widget.onReadyForHome?.call();
+    if (!mounted) return;
+
     Navigator.of(context).pushReplacementNamed(AppRoutes.home);
   }
 
@@ -58,7 +99,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Pick categories to personalize your campus feed',
+                  'Pick at least one category to personalize your campus feed',
                   textAlign: TextAlign.center,
                   style: AppTypography.body(
                     color: AppColors.white.withValues(alpha: 0.88),
@@ -80,7 +121,8 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                       spacing: 10,
                       runSpacing: 10,
                       alignment: WrapAlignment.center,
-                      children: MarketCategories.listingCategories.map((category) {
+                      children:
+                          MarketCategories.listingCategories.map((category) {
                         final isSelected = _selected.contains(category);
                         return GestureDetector(
                           onTap: () => _toggle(category),
@@ -120,7 +162,8 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                   label: 'Continue',
                   width: 240,
                   variant: UniButtonVariant.secondary,
-                  onPressed: _selected.isEmpty ? null : _continue,
+                  isLoading: _saving,
+                  onPressed: _selected.isEmpty || _saving ? null : _continue,
                 ),
                 const SizedBox(height: AppSpacing.lg),
               ],

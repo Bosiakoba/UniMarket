@@ -20,6 +20,9 @@ public static class SeedData
             University = "State University",
             Campus = "Main Campus",
             Phone = "+233 50 000 1122",
+            ProfileComplete = true,
+            InterestCategoriesJson =
+                "[\"Electronics & Gadgets\",\"Books & Stationery\"]",
             CreatedAt = DateTime.UtcNow.AddDays(-21),
         };
 
@@ -32,6 +35,9 @@ public static class SeedData
                 FullName = "Jordan K.",
                 IsSeller = true,
                 IsVerified = true,
+                ProfileComplete = true,
+                InterestCategoriesJson =
+                    "[\"Fashion & Accessories\",\"Electronics & Gadgets\"]",
             },
             new User
             {
@@ -40,6 +46,8 @@ public static class SeedData
                 FullName = "Kwesi M.",
                 IsSeller = true,
                 IsVerified = true,
+                ProfileComplete = true,
+                InterestCategoriesJson = "[\"Food & Snacks\"]",
             },
         };
 

@@ -11,6 +11,7 @@ import '../../../core/widgets/listing_image.dart';
 import '../../../core/widgets/api_client_scope.dart';
 import '../../../core/widgets/message_store_scope.dart';
 import '../../../core/widgets/rating_row.dart';
+import '../../../core/widgets/review_store_scope.dart';
 import '../../../core/widgets/seller_store_scope.dart';
 import '../../../core/widgets/user_session_scope.dart';
 import '../../../core/widgets/verified_badge.dart';
@@ -37,6 +38,16 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
 
   static const _conditions = ['Like new', 'Good', 'Fair'];
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final client = ApiClientScope.of(context);
+      ReviewStoreScope.of(context)
+          .loadFromApi(client, widget.listing.canonicalId);
+    });
+  }
+
   String get _sellerPhone => switch (widget.listing.sellerName) {
         'Ama K.' => '+233 24 111 2233',
         'Kwesi M.' => '+233 55 222 3344',
@@ -57,6 +68,7 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
       sellerName: widget.listing.sellerName,
       listing: widget.listing,
       client: ApiClientScope.of(context),
+      currentUserId: UserSessionScope.of(context).currentUser?.id,
     );
   }
 
@@ -199,7 +211,19 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
 
     if (confirmed != true || !mounted) return;
 
-    SellerStoreScope.of(context).deleteListing(widget.listing.id);
+    final client = ApiClientScope.of(context);
+    final sellerStore = SellerStoreScope.of(context);
+    final error = await sellerStore.deleteListingRemote(
+      listingId: widget.listing.id,
+      client: client,
+    );
+    if (!mounted) return;
+
+    if (error != null) {
+      _showSnack(error);
+      return;
+    }
+
     if (!mounted) return;
     Navigator.of(context).pop();
     _showSnack('Listing deleted.');

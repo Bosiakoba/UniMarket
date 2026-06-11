@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/data/stores/user_session_store.dart';
@@ -23,9 +24,11 @@ class SignInScreen extends StatefulWidget {
 
 class _SignInScreenState extends State<SignInScreen> {
   final _emailController = TextEditingController(
-    text: UserSessionStore.demoEmail,
+    text: kDebugMode ? UserSessionStore.demoEmail : '',
   );
-  final _passwordController = TextEditingController(text: 'demo1234');
+  final _passwordController = TextEditingController(
+    text: kDebugMode ? 'demo1234' : '',
+  );
 
   @override
   void dispose() {
@@ -63,13 +66,22 @@ class _SignInScreenState extends State<SignInScreen> {
       );
     }
 
-    Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+    final route = session.postAuthRoute(client);
+    if (route == AppRoutes.home) {
+      await widget.onSignedIn?.call();
+    }
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacementNamed(route);
   }
 
   Future<void> _socialSignIn() async {
-    _emailController.text = UserSessionStore.demoEmail;
-    _passwordController.text = 'oauth';
-    await _signIn();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Google and Apple sign-in are coming soon. Use campus email.'),
+      ),
+    );
   }
 
   @override

@@ -8,6 +8,7 @@ class AppUser {
     this.phone,
     this.avatarUrl,
     this.interestCategories = const {},
+    this.profileComplete = false,
     this.createdAt,
     this.firebaseUid,
     this.isSeller = false,
@@ -22,6 +23,7 @@ class AppUser {
   final String? phone;
   final String? avatarUrl;
   final Set<String> interestCategories;
+  final bool profileComplete;
   final DateTime? createdAt;
   /// Placeholder until Firebase Auth is wired.
   final String? firebaseUid;
@@ -38,6 +40,7 @@ class AppUser {
     String? phone,
     String? avatarUrl,
     Set<String>? interestCategories,
+    bool? profileComplete,
     bool? isSeller,
     bool? isVerified,
   }) {
@@ -50,6 +53,7 @@ class AppUser {
       phone: phone ?? this.phone,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       interestCategories: interestCategories ?? this.interestCategories,
+      profileComplete: profileComplete ?? this.profileComplete,
       createdAt: createdAt,
       firebaseUid: firebaseUid,
       isSeller: isSeller ?? this.isSeller,

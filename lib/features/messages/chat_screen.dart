@@ -66,7 +66,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void _send() {
+  Future<void> _send() async {
     final store = MessageStoreScope.of(context);
     final thread = store.threadById(widget.threadId);
     if (thread == null) return;
@@ -76,12 +76,22 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (text.trim().isEmpty && listing == null) return;
 
-    store.sendMessage(
+    final error = await store.sendMessage(
       threadId: widget.threadId,
       text: text,
       listing: listing,
       client: ApiClientScope.of(context),
+      currentUserId: UserSessionScope.of(context).currentUser?.id,
     );
+    if (!mounted) return;
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
+
     _controller.clear();
     _scrollToBottom();
   }

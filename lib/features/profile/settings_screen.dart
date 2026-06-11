@@ -28,7 +28,7 @@ class SettingsScreen extends StatelessWidget {
     SellerStoreScope.of(context).resetForSignOut();
     MessageStoreScope.of(context).clearAll();
     WishlistStoreScope.of(context).clear();
-    ReviewStoreScope.of(context).clear();
+    ReviewStoreScope.of(context).clear(reseedOfflineMocks: false);
     ReportStoreScope.of(context).clear();
     NotificationStoreScope.of(context).clear();
     AppPreferencesScope.of(context).reset();
@@ -93,8 +93,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Text(
-            'Firebase Auth and Cloudflare will connect here later. '
-            'Secrets stay off GitHub — use env vars on your home server.',
+            'Signed in with Firebase. Listings, chats, and profile sync with your campus API.',
             style: AppTypography.caption(color: AppColors.textSecondary),
           ),
         ],
