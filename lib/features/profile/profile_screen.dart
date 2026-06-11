@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-import '../../core/data/mock/mock_profile.dart';
 import '../../core/models/listing_item.dart';
+import '../../core/navigation/listing_navigation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/seller_store_scope.dart';
+import '../../core/widgets/user_session_scope.dart';
 import '../../core/widgets/verified_badge.dart';
 import '../../routes/app_routes.dart';
-import '../listings/screens/listing_detail_screen.dart';
 import '../sell/sell_entry.dart';
+import 'edit_profile_screen.dart';
+import 'settings_screen.dart';
 import '../shell/main_shell.dart';
 import 'my_listings_screen.dart';
 
@@ -19,16 +21,19 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sellerStore = SellerStoreScope.of(context);
+    final session = UserSessionScope.of(context);
+    final user = session.currentUser;
 
     return ListenableBuilder(
-      listenable: sellerStore,
+      listenable: Listenable.merge([sellerStore, session]),
       builder: (context, _) {
         final isSeller = sellerStore.isSeller;
         final sellerPending = sellerStore.sellerApplicationPending;
         final isVerified = sellerStore.isVerified;
         final listingCount = sellerStore.activeCount;
-        final displayName =
-            sellerStore.sellerApplication?.fullName ?? MockProfile.name;
+        final displayName = user?.fullName ??
+            sellerStore.sellerApplication?.fullName ??
+            'Guest';
         final storeLabel = sellerStore.sellerApplication?.storeName;
 
         return ColoredBox(
@@ -45,7 +50,11 @@ class ProfileScreen extends StatelessWidget {
                       Text('Profile', style: AppTypography.h2()),
                       const Spacer(),
                       IconButton(
-                        onPressed: () {},
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SettingsScreen(),
+                          ),
+                        ),
                         icon: const Icon(LucideIcons.settings, size: 22),
                         color: AppColors.textPrimary,
                       ),
@@ -84,7 +93,9 @@ class ProfileScreen extends StatelessWidget {
                       ],
                       const SizedBox(height: 4),
                       Text(
-                        '${MockProfile.university} · ${MockProfile.campus}',
+                        user == null
+                            ? 'Sign in to sync your campus profile'
+                            : '${user.university} · ${user.campus}',
                         style: AppTypography.caption(),
                       ),
                       const SizedBox(height: 16),
@@ -99,7 +110,7 @@ class ProfileScreen extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _StatCard(
-                              value: MockProfile.rating.toStringAsFixed(1),
+                              value: sellerStore.sellerRating.toStringAsFixed(1),
                               label: 'Rating',
                             ),
                           ),
@@ -182,7 +193,11 @@ class ProfileScreen extends StatelessWidget {
                       _ProfileTile(
                         icon: LucideIcons.user,
                         title: 'Edit profile',
-                        onTap: () {},
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const EditProfileScreen(),
+                          ),
+                        ),
                       ),
                       _ProfileTile(
                         icon: LucideIcons.messageCircle,
@@ -211,8 +226,7 @@ class ProfileScreen extends StatelessWidget {
                       const SizedBox(height: 20),
                       Center(
                         child: TextButton(
-                          onPressed: () => Navigator.of(context)
-                              .pushReplacementNamed(AppRoutes.signIn),
+                          onPressed: () => SettingsScreen.signOut(context),
                           child: Text(
                             'Sign out',
                             style: AppTypography.body(
@@ -233,10 +247,10 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _openListing(BuildContext context, ListingItem listing) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ListingDetailScreen(listing: listing),
-      ),
+    ListingNavigation.openDetail(
+      context,
+      listing: listing,
+      catalog: SellerStoreScope.of(context),
     );
   }
 }
