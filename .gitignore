@@ -44,6 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# .NET build output
+**/bin/
+**/obj/
+
 # Secrets & credentials — NEVER commit to GitHub
 .env
 .env.*
