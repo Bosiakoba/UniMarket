@@ -7,6 +7,6 @@ compatibility_date = "2024-12-01"
 binding = "AI"
 
 [vars]
-UNIMARKET_API_URL = "http://192.168.0.165:5080"
+UNIMARKET_API_URL = "https://unimarket-api.youngfuturetechnology.xyz"
 
 # Set secret: wrangler secret put ADMIN_API_KEY

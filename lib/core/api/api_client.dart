@@ -82,9 +82,9 @@ class ApiClient {
       _uri('/api/users/me'),
       headers: _headers,
       body: jsonEncode({
-        if (fullName != null) 'fullName': fullName,
-        if (university != null) 'university': university,
-        if (campus != null) 'campus': campus,
+        'fullName': ?fullName,
+        'university': ?university,
+        'campus': ?campus,
         'phone': ?phone,
         'markProfileComplete': ?markProfileComplete,
         'interestCategories': ?interestCategories,
