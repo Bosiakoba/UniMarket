@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../core/constants/app_assets.dart';
-import '../../core/constants/category_posting_schemas.dart';
+import '../../core/constants/shoe_sizes.dart';
 import '../../core/models/category_field.dart';
+import '../../core/models/listing_availability.dart';
 import '../../core/models/post_listing_draft.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -178,10 +179,10 @@ class _PostListingScreenState extends State<PostListingScreen> {
   }
 
   void _onCategoryChanged(String category) {
-    final schema = CategoryPostingSchemas.forCategory(category);
     setState(() {
-      _draft.category = category;
       _draft.attributes.clear();
+      _draft.applyDefaultsForCategory(category);
+      final schema = _draft.schema;
       if (schema.showCondition && schema.conditionOptions.isNotEmpty) {
         _draft.condition = schema.conditionOptions.first;
       }
@@ -189,7 +190,20 @@ class _PostListingScreenState extends State<PostListingScreen> {
   }
 
   void _onAttributeChanged(String key, String value) {
-    setState(() => _draft.attributes[key] = value);
+    setState(() {
+      _draft.attributes[key] = value;
+      if (key == 'item_type') {
+        if (ShoeSizes.isShoeItemType(value)) {
+          _draft.attributes.putIfAbsent('size_gender', () => ShoeSizes.genders.first);
+          _draft.attributes.putIfAbsent('size_system', () => 'UK');
+        } else {
+          _draft.attributes
+            ..remove('size_gender')
+            ..remove('size_system')
+            ..remove('size_value');
+        }
+      }
+    });
   }
 
   void _togglePhoto(String asset) {
@@ -307,6 +321,7 @@ class _PostListingScreenState extends State<PostListingScreen> {
                     onLocationChanged: (l) =>
                         setState(() => _draft.meetupLocation = l),
                     onDiscountChanged: () => setState(() {}),
+                    onAvailabilityChanged: () => setState(() {}),
                   ),
                 _ => _ReviewStep(draft: _draft),
               },
@@ -551,6 +566,7 @@ class _PricingStep extends StatelessWidget {
     required this.onConditionChanged,
     required this.onLocationChanged,
     required this.onDiscountChanged,
+    required this.onAvailabilityChanged,
   });
 
   final CategoryPostingSchema schema;
@@ -562,6 +578,7 @@ class _PricingStep extends StatelessWidget {
   final ValueChanged<String> onConditionChanged;
   final ValueChanged<String> onLocationChanged;
   final VoidCallback onDiscountChanged;
+  final VoidCallback onAvailabilityChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -580,6 +597,11 @@ class _PricingStep extends StatelessWidget {
           keyboardType: TextInputType.number,
           prefixIcon: Icons.payments_outlined,
           onChanged: (_) => onDiscountChanged(),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _AvailabilitySection(
+          draft: draft,
+          onChanged: onAvailabilityChanged,
         ),
         const SizedBox(height: AppSpacing.md),
         Container(
@@ -727,6 +749,109 @@ class _PricingStep extends StatelessWidget {
   }
 }
 
+class _AvailabilitySection extends StatelessWidget {
+  const _AvailabilitySection({
+    required this.draft,
+    required this.onChanged,
+  });
+
+  final PostListingDraft draft;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (draft.isOngoingListing) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceMuted,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Service availability', style: AppTypography.bodyBold()),
+            const SizedBox(height: 6),
+            Text(
+              'Services and gigs stay listed after each completed job. '
+              'Use “Record completed job” when you finish work for a buyer.',
+              style: AppTypography.caption(),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!draft.canChooseStock) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('How many do you have?', style: AppTypography.bodyBold()),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Just one'),
+                selected: draft.availabilityType == ListingAvailabilityType.unique,
+                onSelected: (_) {
+                  draft.availabilityType = ListingAvailabilityType.unique;
+                  onChanged();
+                },
+              ),
+              ChoiceChip(
+                label: const Text('Multiple in stock'),
+                selected: draft.availabilityType == ListingAvailabilityType.stock,
+                onSelected: (_) {
+                  draft.availabilityType = ListingAvailabilityType.stock;
+                  onChanged();
+                },
+              ),
+            ],
+          ),
+          if (draft.usesStockQuantity) ...[
+            const SizedBox(height: 14),
+            Text('Starting quantity', style: AppTypography.caption()),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: PostListingDraft.stockQuantityOptions.map((qty) {
+                final selected = draft.stockQuantity == qty;
+                return ChoiceChip(
+                  label: Text('$qty units'),
+                  selected: selected,
+                  onSelected: (_) {
+                    draft.stockQuantity = qty;
+                    onChanged();
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Each sale reduces stock. Listing hides only when quantity reaches zero.',
+              style: AppTypography.caption(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _ReviewStep extends StatelessWidget {
   const _ReviewStep({required this.draft});
 
@@ -777,7 +902,16 @@ class _ReviewStep extends StatelessWidget {
           ),
         const SizedBox(height: 12),
         _ReviewRow(label: 'Category', value: draft.category),
-        ...draft.schema.fields.where((f) {
+        _ReviewRow(
+          label: 'Availability',
+          value: draft.isOngoingListing
+              ? 'Ongoing service'
+              : draft.usesStockQuantity
+                  ? '${draft.stockQuantity} in stock'
+                  : 'One item',
+        ),
+        ...draft.schema.visibleFields(draft.attributes).where((f) {
+          if (f.type == CategoryFieldType.shoeSize) return false;
           final value = draft.attributes[f.key];
           return value != null && value.trim().isNotEmpty;
         }).map(
@@ -786,6 +920,11 @@ class _ReviewStep extends StatelessWidget {
             value: draft.attributes[field.key]!,
           ),
         ),
+        if (ShoeSizes.isShoeItemType(draft.attributes['item_type']))
+          _ReviewRow(
+            label: 'Shoe size',
+            value: ShoeSizes.formatDetailed(draft.attributes),
+          ),
         if (draft.schema.showCondition)
           _ReviewRow(label: 'Condition', value: draft.condition),
         _ReviewRow(label: 'Meetup', value: draft.meetupLocation),

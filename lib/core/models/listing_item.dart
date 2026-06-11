@@ -1,3 +1,5 @@
+import 'listing_availability.dart';
+
 class ListingItem {
   const ListingItem({
     required this.id,
@@ -17,12 +19,18 @@ class ListingItem {
     this.originalPrice,
     this.discountEndsAt,
     this.discountDurationDays,
+    this.photoUrls = const [],
+    this.availabilityType = ListingAvailabilityType.unique,
+    this.quantityAvailable,
+    this.unitsSold = 0,
+    this.lifecycleStatus = ListingLifecycleStatus.active,
   });
 
   final String id;
   final String title;
   final double price;
   final String imageAsset;
+  final List<String> photoUrls;
   final String sellerName;
   final bool isVerified;
   final double distanceKm;
@@ -36,6 +44,10 @@ class ListingItem {
   final double? originalPrice;
   final DateTime? discountEndsAt;
   final int? discountDurationDays;
+  final ListingAvailabilityType availabilityType;
+  final int? quantityAvailable;
+  final int unitsSold;
+  final ListingLifecycleStatus lifecycleStatus;
 
   bool get hasActiveDiscount {
     if (originalPrice == null || discountEndsAt == null) return false;
@@ -63,6 +75,25 @@ class ListingItem {
   }
 
   String get distanceLabel => '${distanceKm.toStringAsFixed(1)} km';
+
+  bool get isBrowseable => ListingAvailabilityRules.isBrowseable(
+        lifecycleStatus: lifecycleStatus,
+        availabilityType: availabilityType,
+        quantityAvailable: quantityAvailable,
+      );
+
+  String get availabilityLabel => ListingAvailabilityRules.availabilityLabel(
+        type: availabilityType,
+        lifecycleStatus: lifecycleStatus,
+        quantityAvailable: quantityAvailable,
+        unitsSold: unitsSold,
+      );
+
+  List<String> get displayPhotos =>
+      photoUrls.isNotEmpty ? photoUrls : [imageAsset];
+
+  bool get usesNetworkImages =>
+      displayPhotos.any((p) => p.startsWith('http'));
   String get sellerInitial =>
       sellerName.isNotEmpty ? sellerName[0].toUpperCase() : '?';
   String get ratingLabel =>
@@ -88,6 +119,7 @@ class ListingItem {
     String? title,
     double? price,
     String? imageAsset,
+    List<String>? photoUrls,
     String? sellerName,
     bool? isVerified,
     double? distanceKm,
@@ -101,15 +133,21 @@ class ListingItem {
     double? originalPrice,
     DateTime? discountEndsAt,
     int? discountDurationDays,
+    ListingAvailabilityType? availabilityType,
+    int? quantityAvailable,
+    int? unitsSold,
+    ListingLifecycleStatus? lifecycleStatus,
     bool clearOriginalPrice = false,
     bool clearDiscountEndsAt = false,
     bool clearDiscountDurationDays = false,
+    bool clearQuantityAvailable = false,
   }) {
     return ListingItem(
       id: id ?? this.id,
       title: title ?? this.title,
       price: price ?? this.price,
       imageAsset: imageAsset ?? this.imageAsset,
+      photoUrls: photoUrls ?? this.photoUrls,
       sellerName: sellerName ?? this.sellerName,
       isVerified: isVerified ?? this.isVerified,
       distanceKm: distanceKm ?? this.distanceKm,
@@ -127,6 +165,12 @@ class ListingItem {
       discountDurationDays: clearDiscountDurationDays
           ? null
           : (discountDurationDays ?? this.discountDurationDays),
+      availabilityType: availabilityType ?? this.availabilityType,
+      quantityAvailable: clearQuantityAvailable
+          ? null
+          : (quantityAvailable ?? this.quantityAvailable),
+      unitsSold: unitsSold ?? this.unitsSold,
+      lifecycleStatus: lifecycleStatus ?? this.lifecycleStatus,
     );
   }
 }

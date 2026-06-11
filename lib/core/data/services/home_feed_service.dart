@@ -57,8 +57,8 @@ abstract final class HomeFeedService {
         id: 'near-you',
         title: 'Near you',
         subtitle: 'Listings around campus',
-        layout: HomeSectionLayout.listingsGrid,
-        listings: pool,
+        layout: HomeSectionLayout.listingsHorizontal,
+        listings: _nearYou(pool),
         actionLabel: 'See all',
       ),
     ];
@@ -94,19 +94,11 @@ abstract final class HomeFeedService {
   }
 
   static List<ListingItem> filterByCategory(
-    List<HomeFeedSection> sections,
+    List<ListingItem> catalog,
     String? category,
   ) {
-    if (category == null || category == 'All') {
-      return sections
-          .where((s) => s.layout == HomeSectionLayout.listingsGrid)
-          .expand((s) => s.listings)
-          .toList();
-    }
-    return sections
-        .expand((s) => s.listings)
-        .where((l) => l.category == category)
-        .toList();
+    if (category == null || category == 'All') return catalog;
+    return catalog.where((l) => l.category == category).toList();
   }
 
   static String _hotDealsSubtitle(List<ListingItem> pool) {
@@ -129,6 +121,13 @@ abstract final class HomeFeedService {
         .take(4 - discounted.length)
         .toList();
     return [...discounted, ...filler];
+  }
+
+  static List<ListingItem> _nearYou(List<ListingItem> pool) {
+    if (pool.isEmpty) return const [];
+    final sorted = List<ListingItem>.from(pool)
+      ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    return sorted.take(10).toList();
   }
 
   static List<ListingItem> _slice(

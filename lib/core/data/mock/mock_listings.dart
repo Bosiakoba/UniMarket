@@ -16,6 +16,14 @@ abstract final class MockListings {
       distanceKm: 0.4,
       category: 'Shoes & Bags',
       tags: ['sneakers', 'nike', 'campus', 'streetwear'],
+      attributes: {
+        'item_type': 'Sneakers',
+        'brand': 'Nike',
+        'model': 'Air Max 90',
+        'size_gender': "Men's",
+        'size_system': 'UK',
+        'size_value': '9',
+      },
     ),
     ListingItem(
       id: '2',

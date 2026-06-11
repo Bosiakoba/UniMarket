@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../../core/constants/shoe_sizes.dart';
 import '../../../core/data/stores/seller_store.dart';
 import '../../../core/models/listing_item.dart';
 import '../../../core/models/seller_listing_record.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/listing_image.dart';
+import '../../../core/widgets/api_client_scope.dart';
 import '../../../core/widgets/message_store_scope.dart';
 import '../../../core/widgets/rating_row.dart';
 import '../../../core/widgets/seller_store_scope.dart';
 import '../../../core/widgets/verified_badge.dart';
 import '../../seller/seller_profile_screen.dart';
+import '../../../core/models/listing_availability.dart';
 import '../widgets/listing_actions_sheet.dart';
+import '../widgets/listing_attribute_chips.dart';
 import '../widgets/listing_price_text.dart';
+import '../widgets/record_sale_sheet.dart';
 import '../widgets/reviews_section.dart';
 import 'listing_reviews_screen.dart';
 
@@ -44,14 +50,6 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
         'Contact the seller to agree on price and a meetup location.';
   }
 
-  static String _formatAttributeKey(String key) {
-    return key
-        .split('_')
-        .map((part) =>
-            part.isEmpty ? part : '${part[0].toUpperCase()}${part.substring(1)}')
-        .join(' ');
-  }
-
   void _contactSeller() {
     MessageStoreScope.of(context).navigateToSellerChat(
       context,
@@ -66,25 +64,90 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
     );
   }
 
-  void _openOwnerActions({
+  Future<void> _openOwnerActions({
     required ListingItem listing,
     required SellerListingRecord record,
     required SellerStore sellerStore,
-  }) {
-    ListingActionsSheet.showOwner(
+  }) async {
+    await ListingActionsSheet.showOwner(
       context,
       listing: listing,
       record: record,
-      onMarkSold: () {
-        sellerStore.markAsSold(listing.id);
-        _showSnack('Marked as sold.');
-      },
-      onMarkActive: () {
-        sellerStore.markAsActive(listing.id);
-        _showSnack('Marked as active.');
-      },
+      onRecordSale: () => _handleRecordSale(listing, sellerStore),
+      onRestock: () => _handleRestock(listing, sellerStore),
+      onRelist: () => _handleRelist(listing, sellerStore),
       onDelete: () => _confirmDelete(),
     );
+  }
+
+  Future<void> _handleRecordSale(
+    ListingItem listing,
+    SellerStore sellerStore,
+  ) async {
+    final units = await RecordSaleSheet.show(context, listing);
+    if (units == null || !mounted) return;
+
+    final error = await sellerStore.recordSale(
+      listingId: listing.id,
+      units: units,
+      client: ApiClientScope.of(context),
+    );
+    if (!mounted) return;
+
+    if (error != null) {
+      _showSnack(error);
+      return;
+    }
+
+    final updated = sellerStore.recordFor(listing.id)?.listing ?? listing;
+    _showSnack(
+      ListingAvailabilityRules.recordSaleSuccessMessage(
+        type: updated.availabilityType,
+        units: units,
+        quantityRemaining: updated.quantityAvailable,
+        listingClosed: !updated.isBrowseable,
+      ),
+    );
+  }
+
+  Future<void> _handleRestock(
+    ListingItem listing,
+    SellerStore sellerStore,
+  ) async {
+    final quantity = await RestockSheet.show(context, listing);
+    if (quantity == null || !mounted) return;
+
+    final error = await sellerStore.restockListing(
+      listingId: listing.id,
+      quantity: quantity,
+      client: ApiClientScope.of(context),
+    );
+    if (!mounted) return;
+
+    if (error != null) {
+      _showSnack(error);
+      return;
+    }
+
+    _showSnack('Added $quantity units. Listing is live again.');
+  }
+
+  Future<void> _handleRelist(
+    ListingItem listing,
+    SellerStore sellerStore,
+  ) async {
+    final error = await sellerStore.relistListing(
+      listingId: listing.id,
+      client: ApiClientScope.of(context),
+    );
+    if (!mounted) return;
+
+    if (error != null) {
+      _showSnack(error);
+      return;
+    }
+
+    _showSnack('Listing relisted on campus feed.');
   }
 
   void _openBuyerActions(ListingItem listing) {
@@ -196,8 +259,7 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                           const SizedBox(height: 12),
                         ],
                         _ListingPhotoCarousel(
-                          photos: ownerRecord?.allPhotoAssets ??
-                              [listing.imageAsset],
+                          photos: resolved.displayPhotos,
                         ),
                         const SizedBox(height: 18),
                         Text(listing.title, style: AppTypography.h2()),
@@ -224,33 +286,16 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        ListingShoeSizeBadge(listing: listing),
+                        if (ShoeSizes.formatDetailed(listing.attributes).isNotEmpty)
+                          const SizedBox(height: 12),
                         Text(
                           _description(ownerRecord),
                           style: AppTypography.body(),
                         ),
-                        if (listing.attributes.isNotEmpty) ...[
+                        if (ListingAttributeChips.hasVisibleEntries(listing)) ...[
                           const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: listing.attributes.entries.map((entry) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.border),
-                                ),
-                                child: Text(
-                                  '${_formatAttributeKey(entry.key)}: ${entry.value}',
-                                  style: AppTypography.caption(),
-                                ),
-                              );
-                            }).toList(),
-                          ),
+                          ListingAttributeChips(listing: listing),
                         ],
                         if (listing.tags.isNotEmpty) ...[
                           const SizedBox(height: 12),
@@ -369,6 +414,23 @@ class _OwnerStatusBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = record.isActive;
+    final listing = record.listing;
+    final message = active
+        ? switch (listing.availabilityType) {
+            ListingAvailabilityType.ongoing =>
+              'Service is live · ${listing.unitsSold} completed so far',
+            ListingAvailabilityType.stock =>
+              'Live on campus feed · ${listing.availabilityLabel}',
+            ListingAvailabilityType.unique =>
+              'One-of-a-kind item live on campus feed',
+          }
+        : switch (listing.lifecycleStatus) {
+            ListingLifecycleStatus.soldOut => 'Sold out — restock to go live again',
+            ListingLifecycleStatus.sold =>
+              'Sold — relist if you have another identical item',
+            _ => 'Not visible on campus feed',
+          };
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -391,9 +453,7 @@ class _OwnerStatusBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              active
-                  ? 'This listing is live on campus feed'
-                  : 'This listing is marked as sold',
+              message,
               style: AppTypography.bodyBold(),
             ),
           ),
@@ -681,8 +741,8 @@ class _ListingPhotoCarouselState extends State<_ListingPhotoCarousel> {
           child: AspectRatio(
             aspectRatio: 1,
             child: photos.length == 1
-                ? Image.asset(
-                    photos.first,
+                ? ListingImage(
+                    source: photos.first,
                     fit: BoxFit.cover,
                     cacheWidth: 600,
                   )
@@ -690,8 +750,8 @@ class _ListingPhotoCarouselState extends State<_ListingPhotoCarousel> {
                     controller: _controller,
                     itemCount: photos.length,
                     onPageChanged: (value) => setState(() => _index = value),
-                    itemBuilder: (context, index) => Image.asset(
-                      photos[index],
+                    itemBuilder: (context, index) => ListingImage(
+                      source: photos[index],
                       fit: BoxFit.cover,
                       cacheWidth: 600,
                     ),

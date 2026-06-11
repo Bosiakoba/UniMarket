@@ -1,4 +1,5 @@
 import '../constants/market_categories.dart';
+import '../constants/shoe_sizes.dart';
 import '../models/category_field.dart';
 
 abstract final class CategoryPostingSchemas {
@@ -200,10 +201,9 @@ abstract final class CategoryPostingSchemas {
       kind: ListingKind.product,
       titleHint: 'Adidas Campus 00s — UK 8, great condition',
       descriptionHint:
-          'Include size system, insole wear, sole condition, and authenticity cues.',
+          'Include insole wear, sole condition, and authenticity cues. Size is captured separately below.',
       descriptionChecklist: [
         'Brand and model',
-        'Size (UK/US/EU clearly stated)',
         'Insole and sole wear',
         'Creasing, scuffs, or odor issues',
         'Original box or dust bag included',
@@ -211,26 +211,44 @@ abstract final class CategoryPostingSchemas {
       ],
       photoTips: [
         'Side, top, and sole views',
-        'Size label inside',
+        'Size label inside tongue or insole',
         'Insole and heel wear',
         'Box or receipt if available',
       ],
       fields: [
-        _brand,
-        _model,
-        const CategoryField(
-          key: 'size',
-          label: 'Size',
-          hint: 'e.g. UK 8 / EU 42',
-          required: true,
-        ),
         const CategoryField(
           key: 'item_type',
           label: 'Item type',
           hint: 'Select item type',
           required: true,
           type: CategoryFieldType.dropdown,
-          options: ['Sneakers', 'Formal shoes', 'Sandals', 'Backpack', 'Handbag', 'Other bag'],
+          options: [
+            'Sneakers',
+            'Formal shoes',
+            'Sandals',
+            'Backpack',
+            'Handbag',
+            'Other bag',
+          ],
+        ),
+        _brand,
+        _model,
+        const CategoryField(
+          key: 'shoe_size',
+          label: 'Shoe size',
+          hint: 'Pick fit, size system, and size',
+          required: true,
+          type: CategoryFieldType.shoeSize,
+          visibleWhenKey: 'item_type',
+          visibleWhenValues: ShoeSizes.shoeItemTypes,
+        ),
+        const CategoryField(
+          key: 'bag_capacity',
+          label: 'Capacity / size',
+          hint: 'e.g. 25L backpack, 14" laptop sleeve',
+          required: true,
+          visibleWhenKey: 'item_type',
+          visibleWhenValues: ShoeSizes.bagItemTypes,
         ),
       ],
       priceLabel: 'Price (GHS)',

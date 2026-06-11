@@ -1,7 +1,6 @@
-enum CategoryFieldType { text, dropdown, number }
+import '../constants/shoe_sizes.dart';
 
-enum ListingKind { product, service, ticket, job, food, other }
-
+enum CategoryFieldType { text, dropdown, number, shoeSize }
 class CategoryField {
   const CategoryField({
     required this.key,
@@ -10,6 +9,8 @@ class CategoryField {
     this.required = false,
     this.type = CategoryFieldType.text,
     this.options = const [],
+    this.visibleWhenKey,
+    this.visibleWhenValues = const [],
   });
 
   final String key;
@@ -18,7 +19,17 @@ class CategoryField {
   final bool required;
   final CategoryFieldType type;
   final List<String> options;
+  final String? visibleWhenKey;
+  final List<String> visibleWhenValues;
+
+  bool isVisibleFor(Map<String, String> attributes) {
+    if (visibleWhenKey == null || visibleWhenValues.isEmpty) return true;
+    final current = attributes[visibleWhenKey!]?.trim();
+    return current != null && visibleWhenValues.contains(current);
+  }
 }
+
+enum ListingKind { product, service, ticket, job, food, other }
 
 class CategoryPostingSchema {
   const CategoryPostingSchema({
@@ -50,17 +61,27 @@ class CategoryPostingSchema {
   List<CategoryField> get requiredFields =>
       fields.where((f) => f.required).toList();
 
-  bool validateAttributes(Map<String, String> attributes) {
-    for (final field in requiredFields) {
-      if ((attributes[field.key] ?? '').trim().isEmpty) return false;
-    }
-    return true;
-  }
+  List<CategoryField> visibleFields(Map<String, String> attributes) =>
+      fields.where((f) => f.isVisibleFor(attributes)).toList();
+
+  bool validateAttributes(Map<String, String> attributes) =>
+      firstMissingAttribute(attributes) == null;
 
   String? firstMissingAttribute(Map<String, String> attributes) {
-    for (final field in requiredFields) {
-      if ((attributes[field.key] ?? '').trim().isEmpty) return field.label;
+    for (final field in fields) {
+      if (!field.isVisibleFor(attributes)) continue;
+      if (field.type == CategoryFieldType.shoeSize) continue;
+      if (field.required && (attributes[field.key] ?? '').trim().isEmpty) {
+        return field.label;
+      }
     }
+
+    final hasShoeField =
+        fields.any((field) => field.type == CategoryFieldType.shoeSize);
+    if (hasShoeField) {
+      return ShoeSizes.firstMissingShoeField(attributes);
+    }
+
     return null;
   }
 }

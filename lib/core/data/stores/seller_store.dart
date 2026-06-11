@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 
+import '../../api/api_client.dart';
+import '../../models/app_user.dart';
 import '../../constants/app_assets.dart';
 import '../../constants/verification_criteria.dart';
+import '../../models/listing_availability.dart';
 import '../../models/listing_item.dart';
 import '../../models/post_listing_draft.dart';
 import '../../models/seller_application.dart';
@@ -31,7 +34,6 @@ class SellerStore extends ChangeNotifier {
       ),
       views: 128,
       messages: 9,
-      status: ListingStatus.active,
       postedLabel: '2 weeks ago',
     ),
     SellerListingRecord(
@@ -50,10 +52,12 @@ class SellerStore extends ChangeNotifier {
         tags: ['macbook', 'usb-c', 'accessories'],
         rating: 5.0,
         reviewCount: 3,
+        availabilityType: ListingAvailabilityType.stock,
+        quantityAvailable: 10,
+        unitsSold: 2,
       ),
       views: 84,
       messages: 4,
-      status: ListingStatus.active,
       postedLabel: '1 week ago',
       description:
           '7-in-1 USB-C hub with HDMI and SD card reader. Works great with MacBook Air and Pro.',
@@ -74,10 +78,11 @@ class SellerStore extends ChangeNotifier {
         tags: ['design', 'logo', 'freelance'],
         rating: 4.9,
         reviewCount: 11,
+        availabilityType: ListingAvailabilityType.ongoing,
+        unitsSold: 5,
       ),
       views: 56,
       messages: 7,
-      status: ListingStatus.active,
       postedLabel: '5 days ago',
     ),
     SellerListingRecord(
@@ -93,10 +98,11 @@ class SellerStore extends ChangeNotifier {
         tags: ['notes', 'economics', 'level 100'],
         rating: 4.7,
         reviewCount: 2,
+        lifecycleStatus: ListingLifecycleStatus.sold,
+        unitsSold: 1,
       ),
       views: 210,
       messages: 14,
-      status: ListingStatus.sold,
       postedLabel: 'Sold · 3 weeks ago',
     ),
     SellerListingRecord(
@@ -112,10 +118,11 @@ class SellerStore extends ChangeNotifier {
         tags: ['lamp', 'hostel', 'desk'],
         rating: 4.6,
         reviewCount: 1,
+        lifecycleStatus: ListingLifecycleStatus.sold,
+        unitsSold: 1,
       ),
       views: 97,
       messages: 6,
-      status: ListingStatus.sold,
       postedLabel: 'Sold · 1 month ago',
     ),
   ];
@@ -125,6 +132,10 @@ class SellerStore extends ChangeNotifier {
   VerificationStatus verificationStatus = VerificationStatus.none;
   SellerApplication? sellerApplication;
   final List<SellerListingRecord> _records = [];
+  List<ListingItem> _remoteCatalog = [];
+  bool useRemoteCatalog = false;
+  bool isSyncingCatalog = false;
+  String? catalogSyncError;
 
   bool get isSeller =>
       sellerApplicationStatus == SellerApplicationStatus.approved;
@@ -154,7 +165,15 @@ class SellerStore extends ChangeNotifier {
       .map((r) => r.listing)
       .toList();
 
-  List<ListingItem> get allListings => [...activeListings, ...MockListings.items];
+  List<ListingItem> get allListings {
+    if (useRemoteCatalog) {
+      final ownedIds = _records.map((r) => r.listing.id).toSet();
+      final remoteOnly =
+          _remoteCatalog.where((l) => !ownedIds.contains(l.canonicalId));
+      return [...activeListings, ...remoteOnly];
+    }
+    return [...activeListings, ...MockListings.items];
+  }
 
   SellerListingRecord? recordFor(String listingId) {
     for (final record in _records) {
@@ -167,7 +186,8 @@ class SellerStore extends ChangeNotifier {
 
   int get activeCount => _records.where((r) => r.isActive).length;
 
-  int get soldCount => _records.where((r) => !r.isActive).length;
+  int get soldCount =>
+      _records.fold<int>(0, (sum, record) => sum + record.listing.unitsSold);
 
   int get totalListings => _records.length;
 
@@ -268,6 +288,9 @@ class SellerStore extends ChangeNotifier {
       draft.price = listing.price.toStringAsFixed(0);
     }
 
+    draft.availabilityType = listing.availabilityType;
+    draft.stockQuantity = listing.quantityAvailable ?? draft.stockQuantity;
+
     return draft;
   }
 
@@ -282,7 +305,6 @@ class SellerStore extends ChangeNotifier {
         listing: listing,
         views: 0,
         messages: 0,
-        status: ListingStatus.active,
         postedLabel: 'Just now',
         description: draft.description.trim(),
         condition: draft.condition,
@@ -344,6 +366,11 @@ class SellerStore extends ChangeNotifier {
       originalPrice: pricing.originalPrice,
       discountEndsAt: pricing.discountEndsAt,
       discountDurationDays: pricing.discountDurationDays,
+      availabilityType: draft.availabilityType,
+      quantityAvailable: draft.resolvedQuantityAvailable,
+      unitsSold: preserveFrom?.unitsSold ?? 0,
+      lifecycleStatus: preserveFrom?.lifecycleStatus ??
+          ListingLifecycleStatus.active,
     );
   }
 
@@ -372,24 +399,186 @@ class SellerStore extends ChangeNotifier {
     );
   }
 
-  void markAsSold(String listingId) {
-    _updateRecord(
-      listingId,
-      (record) => record.copyWith(
-        status: ListingStatus.sold,
-        postedLabel: 'Sold · just now',
+  Future<String?> recordSale({
+    required String listingId,
+    required int units,
+    ApiClient? client,
+  }) async {
+    final index = _records.indexWhere((r) => r.listing.id == listingId);
+    if (index == -1) return 'Listing not found.';
+
+    if (client != null) {
+      try {
+        final result = await client.recordSale(
+          listingId: listingId,
+          units: units,
+        );
+        _applySaleResult(index, result);
+        notifyListeners();
+        return null;
+      } catch (error) {
+        return error.toString();
+      }
+    }
+
+    final error = _applyLocalSale(index, units);
+    if (error != null) return error;
+    notifyListeners();
+    return null;
+  }
+
+  Future<String?> restockListing({
+    required String listingId,
+    required int quantity,
+    ApiClient? client,
+  }) async {
+    final index = _records.indexWhere((r) => r.listing.id == listingId);
+    if (index == -1) return 'Listing not found.';
+
+    if (client != null) {
+      try {
+        final updated = await client.restockListing(
+          listingId: listingId,
+          quantity: quantity,
+        );
+        _records[index] = _records[index].copyWithListing(updated);
+        notifyListeners();
+        return null;
+      } catch (error) {
+        return error.toString();
+      }
+    }
+
+    final listing = _records[index].listing;
+    if (listing.availabilityType != ListingAvailabilityType.stock) {
+      return 'Only stock listings can be restocked.';
+    }
+
+    _records[index] = _records[index].copyWithListing(
+      listing.copyWith(
+        quantityAvailable: (listing.quantityAvailable ?? 0) + quantity,
+        lifecycleStatus: ListingLifecycleStatus.active,
       ),
     );
+    notifyListeners();
+    return null;
+  }
+
+  Future<String?> relistListing({
+    required String listingId,
+    ApiClient? client,
+  }) async {
+    final index = _records.indexWhere((r) => r.listing.id == listingId);
+    if (index == -1) return 'Listing not found.';
+
+    if (client != null) {
+      try {
+        final updated = await client.relistListing(listingId: listingId);
+        _records[index] = _records[index].copyWithListing(updated);
+        notifyListeners();
+        return null;
+      } catch (error) {
+        return error.toString();
+      }
+    }
+
+    final listing = _records[index].listing;
+    if (listing.availabilityType != ListingAvailabilityType.unique) {
+      return 'Only one-of-a-kind listings can be relisted this way.';
+    }
+
+    _records[index] = _records[index].copyWithListing(
+      listing.copyWith(lifecycleStatus: ListingLifecycleStatus.active),
+    );
+    notifyListeners();
+    return null;
+  }
+
+  @Deprecated('Use recordSale instead')
+  void markAsSold(String listingId) {
+    _applyLocalSale(
+      _records.indexWhere((r) => r.listing.id == listingId),
+      1,
+    );
+    notifyListeners();
   }
 
   void markAsActive(String listingId) {
-    _updateRecord(
-      listingId,
-      (record) => record.copyWith(
-        status: ListingStatus.active,
-        postedLabel: 'Reposted · just now',
+    final index = _records.indexWhere((r) => r.listing.id == listingId);
+    if (index == -1) return;
+
+    _records[index] = _records[index].copyWithListing(
+      _records[index].listing.copyWith(
+        lifecycleStatus: ListingLifecycleStatus.active,
+        unitsSold: _records[index].listing.availabilityType ==
+                ListingAvailabilityType.unique
+            ? 0
+            : _records[index].listing.unitsSold,
       ),
     );
+    notifyListeners();
+  }
+
+  String? _applyLocalSale(int index, int units) {
+    if (index == -1) return 'Listing not found.';
+
+    final record = _records[index];
+    final listing = record.listing;
+    final normalizedUnits = units.clamp(1, 999);
+
+    ListingItem updated;
+    switch (listing.availabilityType) {
+      case ListingAvailabilityType.ongoing:
+        updated = listing.copyWith(
+          unitsSold: listing.unitsSold + normalizedUnits,
+          lifecycleStatus: ListingLifecycleStatus.active,
+        );
+      case ListingAvailabilityType.stock:
+        final remaining = listing.quantityAvailable ?? 0;
+        if (remaining <= 0) {
+          return 'Listing is sold out. Restock before recording another sale.';
+        }
+        if (normalizedUnits > remaining) {
+          return 'Only $remaining unit(s) remain in stock.';
+        }
+        final nextRemaining = remaining - normalizedUnits;
+        updated = listing.copyWith(
+          quantityAvailable: nextRemaining,
+          unitsSold: listing.unitsSold + normalizedUnits,
+          lifecycleStatus: nextRemaining <= 0
+              ? ListingLifecycleStatus.soldOut
+              : ListingLifecycleStatus.active,
+        );
+      case ListingAvailabilityType.unique:
+        if (normalizedUnits != 1) {
+          return 'Unique listings can only record one sale at a time.';
+        }
+        updated = listing.copyWith(
+          unitsSold: 1,
+          lifecycleStatus: ListingLifecycleStatus.sold,
+        );
+    }
+
+    _records[index] = record.copyWithListing(updated).copyWith(
+          postedLabel: listing.availabilityType == ListingAvailabilityType.ongoing
+              ? '${updated.unitsSold} completed'
+              : updated.lifecycleStatus == ListingLifecycleStatus.active
+                  ? record.postedLabel
+                  : 'Sold · just now',
+        );
+    return null;
+  }
+
+  void _applySaleResult(int index, ListingItem updatedListing) {
+    final record = _records[index];
+    _records[index] = record.copyWithListing(updatedListing).copyWith(
+          postedLabel: updatedListing.availabilityType ==
+                  ListingAvailabilityType.ongoing
+              ? '${updatedListing.unitsSold} completed'
+              : updatedListing.isBrowseable
+                  ? record.postedLabel
+                  : 'Sold · just now',
+        );
   }
 
   void deleteListing(String listingId) {
@@ -405,16 +594,6 @@ class SellerStore extends ChangeNotifier {
         listing.copyWith(isVerified: isVerified),
       );
     }
-  }
-
-  void _updateRecord(
-    String listingId,
-    SellerListingRecord Function(SellerListingRecord record) transform,
-  ) {
-    final index = _records.indexWhere((r) => r.listing.id == listingId);
-    if (index == -1) return;
-    _records[index] = transform(_records[index]);
-    notifyListeners();
   }
 
   void loadDemoSellerState({String? displayName, String? email}) {
@@ -435,9 +614,74 @@ class SellerStore extends ChangeNotifier {
 
   void resetForSignOut() {
     _records.clear();
+    _remoteCatalog = [];
+    useRemoteCatalog = false;
+    isSyncingCatalog = false;
+    catalogSyncError = null;
     sellerApplication = null;
     sellerApplicationStatus = SellerApplicationStatus.none;
     verificationStatus = VerificationStatus.none;
     notifyListeners();
+  }
+
+  Future<void> syncFromApi(ApiClient client, {required AppUser user}) async {
+    isSyncingCatalog = true;
+    catalogSyncError = null;
+    notifyListeners();
+
+    try {
+      client.devUserId = user.id;
+      final items = await client.fetchListings();
+      _remoteCatalog = items;
+      useRemoteCatalog = true;
+      applyUserProfile(user);
+
+      for (final item in items.where((l) => l.sellerName == user.fullName)) {
+        _upsertOwnedListing(item);
+      }
+    } catch (error) {
+      catalogSyncError = error.toString();
+      if (user.email.toLowerCase() == MockProfile.email.toLowerCase()) {
+        loadDemoSellerState(displayName: user.fullName, email: user.email);
+      }
+    } finally {
+      isSyncingCatalog = false;
+      notifyListeners();
+    }
+  }
+
+  void applyUserProfile(AppUser user) {
+    if (user.isSeller) {
+      sellerApplication = SellerApplication(
+        fullName: user.fullName,
+        studentEmail: user.email,
+        storeName: user.fullName,
+        studentIdUploaded: true,
+        appliedAt: DateTime.now().subtract(const Duration(days: 21)),
+      );
+      sellerApplicationStatus = SellerApplicationStatus.approved;
+    }
+    verificationStatus = user.isVerified
+        ? VerificationStatus.verified
+        : VerificationStatus.none;
+  }
+
+  void _upsertOwnedListing(ListingItem listing) {
+    final index = _records.indexWhere((r) => r.listing.id == listing.id);
+    if (index >= 0) {
+      _records[index] = _records[index].copyWithListing(listing);
+      return;
+    }
+
+    _records.add(
+      SellerListingRecord(
+        listing: listing,
+        views: 0,
+        messages: 0,
+        postedLabel: 'From server',
+        description: listing.title,
+        photoAssets: listing.displayPhotos,
+      ),
+    );
   }
 }

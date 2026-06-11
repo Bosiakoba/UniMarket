@@ -1,5 +1,6 @@
 import '../constants/category_posting_schemas.dart';
 import 'category_field.dart';
+import 'listing_availability.dart';
 
 class PostListingDraft {
   PostListingDraft({
@@ -15,12 +16,17 @@ class PostListingDraft {
     this.enableDiscount = false,
     this.discountPercent = 15,
     this.discountValidDays = 7,
+    ListingAvailabilityType? availabilityType,
+    this.stockQuantity = 1,
   })  : photoAssets = photoAssets ?? [],
         tags = tags ?? [],
-        attributes = attributes ?? {};
+        attributes = attributes ?? {},
+        availabilityType =
+            availabilityType ?? ListingAvailabilityType.unique;
 
   static const discountPercentOptions = [10, 15, 20, 25, 30];
   static const discountValidDayOptions = [3, 7, 14, 30];
+  static const stockQuantityOptions = [2, 3, 5, 10, 20, 50];
 
   final List<String> photoAssets;
   String title;
@@ -34,6 +40,8 @@ class PostListingDraft {
   bool enableDiscount;
   int discountPercent;
   int discountValidDays;
+  ListingAvailabilityType availabilityType;
+  int stockQuantity;
 
   CategoryPostingSchema get schema =>
       CategoryPostingSchemas.forCategory(category);
@@ -68,5 +76,28 @@ class PostListingDraft {
     final base = listPrice;
     if (base == null || !enableDiscount) return base;
     return base * (1 - discountPercent / 100);
+  }
+
+  bool get canChooseStock =>
+      ListingAvailabilityRules.supportsStock(schema.kind);
+
+  bool get isOngoingListing =>
+      availabilityType == ListingAvailabilityType.ongoing;
+
+  bool get usesStockQuantity =>
+      availabilityType == ListingAvailabilityType.stock;
+
+  void applyDefaultsForCategory(String nextCategory) {
+    category = nextCategory;
+    final nextSchema = CategoryPostingSchemas.forCategory(nextCategory);
+    availabilityType = ListingAvailabilityRules.defaultForKind(nextSchema.kind);
+    stockQuantity = 2;
+  }
+
+  int? get resolvedQuantityAvailable {
+    if (availabilityType == ListingAvailabilityType.stock) {
+      return stockQuantity.clamp(2, 999);
+    }
+    return null;
   }
 }

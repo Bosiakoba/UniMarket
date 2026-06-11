@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../../core/models/listing_availability.dart';
 import '../../../core/models/listing_item.dart';
 import '../../../core/models/seller_listing_record.dart';
 import '../../../core/theme/app_colors.dart';
@@ -12,8 +13,9 @@ import 'report_listing_sheet.dart';
 
 enum _ListingAction {
   edit,
-  markSold,
-  markActive,
+  recordSale,
+  restock,
+  relist,
   delete,
   contact,
   call,
@@ -26,8 +28,9 @@ class ListingActionsSheet extends StatelessWidget {
     super.key,
     required this.listing,
     required this.record,
-    required this.onMarkSold,
-    required this.onMarkActive,
+    required this.onRecordSale,
+    required this.onRestock,
+    required this.onRelist,
     required this.onDelete,
   })  : isOwner = true,
         phone = null,
@@ -40,8 +43,9 @@ class ListingActionsSheet extends StatelessWidget {
     required this.onContact,
   })  : isOwner = false,
         record = null,
-        onMarkSold = null,
-        onMarkActive = null,
+        onRecordSale = null,
+        onRestock = null,
+        onRelist = null,
         onDelete = null;
 
   final bool isOwner;
@@ -49,16 +53,18 @@ class ListingActionsSheet extends StatelessWidget {
   final SellerListingRecord? record;
   final String? phone;
   final VoidCallback? onContact;
-  final VoidCallback? onMarkSold;
-  final VoidCallback? onMarkActive;
+  final VoidCallback? onRecordSale;
+  final VoidCallback? onRestock;
+  final VoidCallback? onRelist;
   final Future<void> Function()? onDelete;
 
   static Future<void> showOwner(
     BuildContext context, {
     required ListingItem listing,
     required SellerListingRecord record,
-    required VoidCallback onMarkSold,
-    required VoidCallback onMarkActive,
+    required VoidCallback onRecordSale,
+    required VoidCallback onRestock,
+    required VoidCallback onRelist,
     required Future<void> Function() onDelete,
   }) {
     return showModalBottomSheet<void>(
@@ -71,8 +77,9 @@ class ListingActionsSheet extends StatelessWidget {
       builder: (_) => ListingActionsSheet.owner(
         listing: listing,
         record: record,
-        onMarkSold: onMarkSold,
-        onMarkActive: onMarkActive,
+        onRecordSale: onRecordSale,
+        onRestock: onRestock,
+        onRelist: onRelist,
         onDelete: onDelete,
       ),
     );
@@ -101,11 +108,19 @@ class ListingActionsSheet extends StatelessWidget {
 
   List<_ListingAction> get _actions {
     if (isOwner) {
-      return [
-        _ListingAction.edit,
-        record!.isActive ? _ListingAction.markSold : _ListingAction.markActive,
-        _ListingAction.delete,
-      ];
+      final current = record!.listing;
+      final actions = <_ListingAction>[_ListingAction.edit];
+
+      if (current.isBrowseable) {
+        actions.add(_ListingAction.recordSale);
+      } else if (current.availabilityType == ListingAvailabilityType.stock) {
+        actions.add(_ListingAction.restock);
+      } else if (current.availabilityType == ListingAvailabilityType.unique) {
+        actions.add(_ListingAction.relist);
+      }
+
+      actions.add(_ListingAction.delete);
+      return actions;
     }
     return [
       _ListingAction.contact,
@@ -118,8 +133,10 @@ class ListingActionsSheet extends StatelessWidget {
   String _label(_ListingAction action) {
     return switch (action) {
       _ListingAction.edit => 'Edit listing',
-      _ListingAction.markSold => 'Mark as sold',
-      _ListingAction.markActive => 'Mark as active',
+      _ListingAction.recordSale =>
+        ListingAvailabilityRules.recordSaleLabel(listing.availabilityType),
+      _ListingAction.restock => 'Restock listing',
+      _ListingAction.relist => 'Relist item',
       _ListingAction.delete => 'Delete listing',
       _ListingAction.contact => 'Message seller',
       _ListingAction.call => 'Call seller',
@@ -131,8 +148,9 @@ class ListingActionsSheet extends StatelessWidget {
   IconData _icon(_ListingAction action) {
     return switch (action) {
       _ListingAction.edit => LucideIcons.pencil,
-      _ListingAction.markSold => LucideIcons.checkCircle2,
-      _ListingAction.markActive => LucideIcons.circleDot,
+      _ListingAction.recordSale => LucideIcons.checkCircle2,
+      _ListingAction.restock => LucideIcons.packagePlus,
+      _ListingAction.relist => LucideIcons.rotateCcw,
       _ListingAction.delete => LucideIcons.trash2,
       _ListingAction.contact => LucideIcons.messageCircle,
       _ListingAction.call => LucideIcons.phone,
@@ -157,10 +175,12 @@ class ListingActionsSheet extends StatelessWidget {
             builder: (_) => EditListingScreen(listingId: listingId),
           ),
         );
-      case _ListingAction.markSold:
-        onMarkSold?.call();
-      case _ListingAction.markActive:
-        onMarkActive?.call();
+      case _ListingAction.recordSale:
+        onRecordSale?.call();
+      case _ListingAction.restock:
+        onRestock?.call();
+      case _ListingAction.relist:
+        onRelist?.call();
       case _ListingAction.delete:
         await onDelete?.call();
       case _ListingAction.contact:
