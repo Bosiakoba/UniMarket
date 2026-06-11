@@ -12,6 +12,7 @@ import '../../../core/widgets/api_client_scope.dart';
 import '../../../core/widgets/message_store_scope.dart';
 import '../../../core/widgets/rating_row.dart';
 import '../../../core/widgets/seller_store_scope.dart';
+import '../../../core/widgets/user_session_scope.dart';
 import '../../../core/widgets/verified_badge.dart';
 import '../../seller/seller_profile_screen.dart';
 import '../../../core/models/listing_availability.dart';
@@ -55,6 +56,7 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
       context,
       sellerName: widget.listing.sellerName,
       listing: widget.listing,
+      client: ApiClientScope.of(context),
     );
   }
 
@@ -87,19 +89,30 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
     final units = await RecordSaleSheet.show(context, listing);
     if (units == null || !mounted) return;
 
-    final error = await sellerStore.recordSale(
+    final result = await sellerStore.recordSale(
       listingId: listing.id,
       units: units,
       client: ApiClientScope.of(context),
     );
     if (!mounted) return;
 
-    if (error != null) {
-      _showSnack(error);
+    if (result.error != null) {
+      _showSnack(result.error!);
       return;
     }
 
     final updated = sellerStore.recordFor(listing.id)?.listing ?? listing;
+    if (result.saleId != null) {
+      await MessageStoreScope.of(context).afterSaleRecorded(
+        listing: updated,
+        saleId: result.saleId!,
+        units: units,
+        client: ApiClientScope.of(context),
+        currentUserId: UserSessionScope.of(context).currentUser?.id,
+      );
+    }
+    if (!mounted) return;
+
     _showSnack(
       ListingAvailabilityRules.recordSaleSuccessMessage(
         type: updated.availabilityType,

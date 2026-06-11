@@ -59,7 +59,7 @@ class _UniMarketAppState extends State<UniMarketApp> {
     _apiClient.devUserId = user.id;
     await _sellerStore.syncFromApi(_apiClient, user: user);
     await _wishlistStore.syncFromApi(_apiClient);
-    _messageStore.resetToSeed();
+    await _messageStore.syncFromApi(_apiClient, userId: user.id);
   }
 
   @override

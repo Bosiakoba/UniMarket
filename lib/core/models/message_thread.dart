@@ -8,11 +8,15 @@ class MessageThread {
     required this.messages,
     this.attachedListing,
     this.unread = false,
+    this.listingId,
+    this.buyerName,
   });
 
   final String id;
   final String sellerName;
   final List<ChatMessage> messages;
+  final String? listingId;
+  final String? buyerName;
   ListingItem? attachedListing;
   bool unread;
 
@@ -27,6 +31,12 @@ class MessageThread {
       return 'Start a conversation';
     }
     final last = messages.last;
+    if (last.isSaleConfirmation) {
+      return 'Confirm your purchase';
+    }
+    if (last.isSystemText) {
+      return last.text;
+    }
     if (last.hasListing) {
       return 'Shared ${last.listing!.title}';
     }

@@ -24,11 +24,30 @@ class ListingImage extends StatelessWidget {
   static bool isNetworkSource(String value) =>
       value.startsWith('http://') || value.startsWith('https://');
 
+  /// placehold.co defaults to SVG; Android Flutter cannot decode that.
+  static String normalizeSource(String value) {
+    if (!isNetworkSource(value) || !value.contains('placehold.co')) {
+      return value;
+    }
+    final uri = Uri.tryParse(value);
+    if (uri == null) return value;
+    final segments = uri.pathSegments;
+    if (segments.isEmpty) return value;
+    final last = segments.last.toLowerCase();
+    if (last == 'png' || last == 'jpg' || last == 'jpeg' || last == 'webp') {
+      return value;
+    }
+    final sizeSegment = segments.first;
+    final normalizedPath = '/$sizeSegment/png';
+    return uri.replace(path: normalizedPath).toString();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final child = isNetworkSource(source)
+    final resolvedSource = normalizeSource(source);
+    final child = isNetworkSource(resolvedSource)
         ? Image.network(
-            source,
+            resolvedSource,
             fit: fit,
             width: width,
             height: height,

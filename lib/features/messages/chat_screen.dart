@@ -5,7 +5,9 @@ import '../../core/models/listing_item.dart';
 import '../../core/models/message_thread.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/message_store_scope.dart';
+import '../../core/widgets/user_session_scope.dart';
 import 'widgets/listing_attachment_card.dart';
 import 'widgets/message_bubble.dart';
 
@@ -25,9 +27,17 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final store = MessageStoreScope.of(context);
+      final client = ApiClientScope.of(context);
+      final userId = UserSessionScope.of(context).currentUser?.id;
       store.markRead(widget.threadId);
+      await store.refreshThreadMessages(
+        threadId: widget.threadId,
+        client: client,
+        currentUserId: userId,
+      );
+      if (!mounted) return;
       final thread = store.threadById(widget.threadId);
       if (thread != null &&
           thread.attachedListing != null &&
@@ -70,6 +80,7 @@ class _ChatScreenState extends State<ChatScreen> {
       threadId: widget.threadId,
       text: text,
       listing: listing,
+      client: ApiClientScope.of(context),
     );
     _controller.clear();
     _scrollToBottom();
@@ -133,7 +144,10 @@ class _ChatScreenState extends State<ChatScreen> {
               itemBuilder: (context, index) {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: MessageBubble(message: thread.messages[index]),
+                  child: MessageBubble(
+                    message: thread.messages[index],
+                    threadId: widget.threadId,
+                  ),
                 );
               },
             ),

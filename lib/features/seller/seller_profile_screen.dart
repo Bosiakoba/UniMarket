@@ -9,6 +9,7 @@ import '../../core/theme/app_typography.dart';
 import '../listings/widgets/listing_card.dart';
 import '../../core/widgets/rating_row.dart';
 import '../../core/widgets/verified_badge.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/message_store_scope.dart';
 import '../listings/screens/listing_detail_screen.dart';
 import '../listings/screens/listing_reviews_screen.dart';
@@ -174,6 +175,7 @@ class SellerProfileScreen extends StatelessWidget {
                             context,
                             sellerName: sellerName,
                             listing: highlightListing,
+                            client: ApiClientScope.of(context),
                           ),
                           style: FilledButton.styleFrom(
                             backgroundColor: AppColors.forestGreen,

@@ -4,8 +4,10 @@ import 'package:http/http.dart' as http;
 
 import '../constants/app_assets.dart';
 import '../models/app_user.dart';
+import '../models/chat_message.dart';
 import '../models/listing_availability.dart';
 import '../models/listing_item.dart';
+import '../models/record_sale_result.dart';
 import '../models/listing_review.dart';
 import '../config/api_config.dart';
 
@@ -127,7 +129,7 @@ class ApiClient {
     }
   }
 
-  Future<ListingItem> recordSale({
+  Future<RecordSaleResult> recordSale({
     required String listingId,
     required int units,
     String? buyerUserId,
@@ -140,14 +142,72 @@ class ApiClient {
         if (buyerUserId != null) 'buyerUserId': buyerUserId,
       }),
     );
-    _decodeObject(response, errorLabel: 'Could not record sale');
+    final saleJson =
+        _decodeObject(response, errorLabel: 'Could not record sale');
     final listingResponse = await http.get(
       _uri('/api/listings/$listingId'),
       headers: _headers,
     );
     final listingJson =
         _decodeObject(listingResponse, errorLabel: 'Could not refresh listing');
-    return ListingMapper.fromJson(listingJson);
+    return RecordSaleResult(
+      saleId: saleJson['id'] as String,
+      listing: ListingMapper.fromJson(listingJson),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> fetchChats() async {
+    final response = await http.get(_uri('/api/chats'), headers: _headers);
+    final list = _decodeList(response, errorLabel: 'Could not load chats');
+    return list.cast<Map<String, dynamic>>();
+  }
+
+  Future<String> openChat({required String listingId}) async {
+    final response = await http.post(
+      _uri('/api/chats', {'listingId': listingId}),
+      headers: _headers,
+    );
+    final json = _decodeObject(response, errorLabel: 'Could not open chat');
+    return json['id'] as String;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchChatMessages(String chatId) async {
+    final response =
+        await http.get(_uri('/api/chats/$chatId/messages'), headers: _headers);
+    final list = _decodeList(response, errorLabel: 'Could not load messages');
+    return list.cast<Map<String, dynamic>>();
+  }
+
+  Future<void> respondToSale({
+    required String saleId,
+    required bool confirmed,
+  }) async {
+    final response = await http.post(
+      _uri('/api/sales/$saleId/respond'),
+      headers: _headers,
+      body: jsonEncode({'confirmed': confirmed}),
+    );
+    if (response.statusCode >= 400) {
+      throw ApiException('Could not respond to sale', statusCode: response.statusCode);
+    }
+  }
+
+  Future<void> confirmSale(String saleId) async {
+    await respondToSale(saleId: saleId, confirmed: true);
+  }
+
+  Future<void> sendChatMessage({
+    required String chatId,
+    required String content,
+  }) async {
+    final response = await http.post(
+      _uri('/api/chats/$chatId/messages'),
+      headers: _headers,
+      body: jsonEncode({'content': content}),
+    );
+    if (response.statusCode >= 400) {
+      throw ApiException('Could not send message', statusCode: response.statusCode);
+    }
   }
 
   Future<ListingItem> restockListing({
@@ -172,14 +232,33 @@ class ApiClient {
     return ListingMapper.fromJson(json);
   }
 
-  Future<void> confirmSale(String saleId) async {
-    final response = await http.post(
-      _uri('/api/sales/$saleId/confirm'),
-      headers: _headers,
-    );
-    if (response.statusCode >= 400) {
-      throw ApiException('Could not confirm sale', statusCode: response.statusCode);
+  static ChatMessage messageFromJson(
+    Map<String, dynamic> json, {
+    required String currentUserId,
+  }) {
+    final senderId = json['senderId'] as String? ?? '';
+    final messageType = json['messageType'] as String? ?? 'text';
+    final isSystem = senderId == 'unimarket-system';
+
+    ChatMessageKind kind = ChatMessageKind.text;
+    if (messageType == 'sale_confirmation') {
+      kind = ChatMessageKind.saleConfirmation;
+    } else if (messageType == 'system_text' || isSystem) {
+      kind = ChatMessageKind.systemText;
     }
+
+    return ChatMessage(
+      id: json['id'] as String,
+      text: json['content'] as String? ?? '',
+      isMine: !isSystem &&
+          senderId == currentUserId &&
+          kind == ChatMessageKind.text,
+      timeLabel: json['timeLabel'] as String? ?? 'Recently',
+      kind: kind,
+      saleId: json['saleId'] as String?,
+      confirmationStatus: json['confirmationStatus'] as String?,
+      requiresMyResponse: json['canRespond'] as bool? ?? false,
+    );
   }
 
   List<dynamic> _decodeList(http.Response response, {required String errorLabel}) {

@@ -5,6 +5,7 @@ import '../../models/app_user.dart';
 import '../../constants/app_assets.dart';
 import '../../constants/verification_criteria.dart';
 import '../../models/listing_availability.dart';
+import '../../models/record_sale_result.dart';
 import '../../models/listing_item.dart';
 import '../../models/post_listing_draft.dart';
 import '../../models/seller_application.dart';
@@ -399,13 +400,13 @@ class SellerStore extends ChangeNotifier {
     );
   }
 
-  Future<String?> recordSale({
+  Future<({String? error, String? saleId})> recordSale({
     required String listingId,
     required int units,
     ApiClient? client,
   }) async {
     final index = _records.indexWhere((r) => r.listing.id == listingId);
-    if (index == -1) return 'Listing not found.';
+    if (index == -1) return (error: 'Listing not found.', saleId: null);
 
     if (client != null) {
       try {
@@ -415,16 +416,19 @@ class SellerStore extends ChangeNotifier {
         );
         _applySaleResult(index, result);
         notifyListeners();
-        return null;
+        return (error: null, saleId: result.saleId);
       } catch (error) {
-        return error.toString();
+        return (error: error.toString(), saleId: null);
       }
     }
 
     final error = _applyLocalSale(index, units);
-    if (error != null) return error;
+    if (error != null) return (error: error, saleId: null);
     notifyListeners();
-    return null;
+    return (
+      error: null,
+      saleId: 'local-${DateTime.now().millisecondsSinceEpoch}',
+    );
   }
 
   Future<String?> restockListing({
@@ -569,8 +573,9 @@ class SellerStore extends ChangeNotifier {
     return null;
   }
 
-  void _applySaleResult(int index, ListingItem updatedListing) {
+  void _applySaleResult(int index, RecordSaleResult result) {
     final record = _records[index];
+    final updatedListing = result.listing;
     _records[index] = record.copyWithListing(updatedListing).copyWith(
           postedLabel: updatedListing.availabilityType ==
                   ListingAvailabilityType.ongoing

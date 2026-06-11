@@ -5,6 +5,7 @@ import '../../core/models/listing_item.dart';
 import '../../core/models/seller_listing_record.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/listing_image.dart';
 import '../../core/widgets/rating_row.dart';
 import '../../core/widgets/seller_store_scope.dart';
 import '../../core/widgets/uni_option_sheet.dart';
@@ -231,8 +232,8 @@ class _ListingRecordCard extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      listing.imageAsset,
+                    child: ListingImage(
+                      source: listing.imageAsset,
                       width: 72,
                       height: 72,
                       fit: BoxFit.cover,
@@ -244,22 +245,16 @@ class _ListingRecordCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                listing.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.bodyBold(),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            _StatusBadge(
-                              label: record.statusLabel,
-                              sold: sold,
-                            ),
-                          ],
+                        Text(
+                          listing.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodyBold(),
+                        ),
+                        const SizedBox(height: 6),
+                        _StatusBadge(
+                          label: record.statusLabel,
+                          sold: sold,
                         ),
                         const SizedBox(height: 4),
                         ListingPriceText(
@@ -269,6 +264,8 @@ class _ListingRecordCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           listing.category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: AppTypography.caption(),
                         ),
                       ],
@@ -331,18 +328,23 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: sold
-            ? AppColors.textTertiary.withValues(alpha: 0.15)
-            : AppColors.forestGreen.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: AppTypography.caption(
-          color: sold ? AppColors.textSecondary : AppColors.forestGreen,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: sold
+              ? AppColors.textTertiary.withValues(alpha: 0.15)
+              : AppColors.forestGreen.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.caption(
+            color: sold ? AppColors.textSecondary : AppColors.forestGreen,
+          ),
         ),
       ),
     );
