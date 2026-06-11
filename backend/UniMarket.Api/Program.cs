@@ -27,6 +27,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<ListingMapper>();
+builder.Services.AddScoped<FirebaseAuthService>();
+builder.Services.AddScoped<UserProvisioningService>();
+builder.Services.AddScoped<R2StorageService>();
 builder.Services.AddScoped<SaleConfirmationService>();
 
 builder.Services.AddCors(options =>
@@ -51,7 +54,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors();
-app.UseMiddleware<DevAuthMiddleware>();
+app.UseMiddleware<AuthMiddleware>();
 app.MapControllers();
 app.MapGet("/health", (
     IOptions<FirebaseSettings> firebase,

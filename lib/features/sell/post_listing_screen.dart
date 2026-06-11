@@ -9,10 +9,12 @@ import '../../core/models/post_listing_draft.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/seller_store_scope.dart';
 import '../../core/widgets/uni_button.dart';
 import '../../core/widgets/uni_option_sheet.dart';
 import '../../core/widgets/uni_text_field.dart';
+import 'widgets/listing_photo_picker.dart';
 import 'widgets/category_fields_form.dart';
 import 'widgets/category_picker_sheet.dart';
 import 'widgets/description_guide_card.dart';
@@ -58,6 +60,7 @@ class _PostListingScreenState extends State<PostListingScreen> {
   final _priceController = TextEditingController();
   int _step = 0;
   bool _draftReady = false;
+  bool _isPublishing = false;
 
   bool get _isEditing => widget.editingListingId != null;
 
@@ -151,25 +154,49 @@ class _PostListingScreenState extends State<PostListingScreen> {
     _draft.price = _priceController.text;
   }
 
-  void _save() {
+  Future<void> _save() async {
     _syncDraftFromControllers();
-    if (!_draft.isReadyToPublish) return;
+    if (!_draft.isReadyToPublish || _isPublishing) return;
 
     final store = SellerStoreScope.of(context);
-    if (_isEditing) {
-      store.updateListing(widget.editingListingId!, _draft);
-      Navigator.of(context).pop();
-      _showSnack('Listing updated.');
+    final client = ApiClientScope.of(context);
+    setState(() => _isPublishing = true);
+
+    final error = _isEditing
+        ? await store.updateListingRemote(
+            listingId: widget.editingListingId!,
+            draft: _draft,
+            client: client,
+          )
+        : await store.publishListing(
+            draft: _draft,
+            client: client,
+          );
+
+    if (!mounted) return;
+    setState(() => _isPublishing = false);
+
+    if (error != null) {
+      _showSnack(error);
       return;
     }
 
-    store.publish(_draft);
     Navigator.of(context).pop();
     _showSnack(
-      _draft.enableDiscount
-          ? 'Listing published — it will appear in Hot deals.'
-          : 'Listing published to campus feed.',
+      _isEditing
+          ? 'Listing updated.'
+          : _draft.enableDiscount
+              ? 'Listing published — it will appear in Hot deals.'
+              : 'Listing published to campus feed.',
     );
+  }
+
+  void _setPhotos(List<String> photos) {
+    setState(() {
+      _draft.photoAssets
+        ..clear()
+        ..addAll(photos);
+    });
   }
 
   void _showSnack(String message) {
@@ -206,16 +233,6 @@ class _PostListingScreenState extends State<PostListingScreen> {
     });
   }
 
-  void _togglePhoto(String asset) {
-    setState(() {
-      if (_draft.photoAssets.contains(asset)) {
-        _draft.photoAssets.remove(asset);
-      } else if (_draft.photoAssets.length < 4) {
-        _draft.photoAssets.add(asset);
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     if (!_draftReady) {
@@ -227,6 +244,7 @@ class _PostListingScreenState extends State<PostListingScreen> {
 
     final bottom = MediaQuery.paddingOf(context).bottom;
     const stepLabels = ['Photos', 'Details', 'Pricing', 'Review'];
+    final useMockPhotos = ApiClientScope.of(context).idToken == null;
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -293,9 +311,10 @@ class _PostListingScreenState extends State<PostListingScreen> {
               child: switch (_step) {
                 0 => _PhotosStep(
                     schema: _draft.schema,
-                    options: _photoOptions,
-                    selected: _draft.photoAssets,
-                    onToggle: _togglePhoto,
+                    photos: _draft.photoAssets,
+                    useMockPhotos: useMockPhotos,
+                    mockAssetOptions: _photoOptions,
+                    onPhotosChanged: _setPhotos,
                   ),
                 1 => _DetailsStep(
                     schema: _draft.schema,
@@ -334,7 +353,8 @@ class _PostListingScreenState extends State<PostListingScreen> {
                   ? (_isEditing ? 'Save changes' : 'Publish listing')
                   : 'Continue',
               variant: UniButtonVariant.green,
-              onPressed: _next,
+              isLoading: _isPublishing,
+              onPressed: _isPublishing ? null : _next,
             ),
           ),
         ],
@@ -346,15 +366,17 @@ class _PostListingScreenState extends State<PostListingScreen> {
 class _PhotosStep extends StatelessWidget {
   const _PhotosStep({
     required this.schema,
-    required this.options,
-    required this.selected,
-    required this.onToggle,
+    required this.photos,
+    required this.useMockPhotos,
+    required this.mockAssetOptions,
+    required this.onPhotosChanged,
   });
 
   final CategoryPostingSchema schema;
-  final List<String> options;
-  final List<String> selected;
-  final ValueChanged<String> onToggle;
+  final List<String> photos;
+  final bool useMockPhotos;
+  final List<String> mockAssetOptions;
+  final ValueChanged<List<String>> onPhotosChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -364,7 +386,9 @@ class _PhotosStep extends StatelessWidget {
         Text('Add photos', style: AppTypography.h2()),
         const SizedBox(height: 6),
         Text(
-          'Pick up to 4 photos. First photo is the cover image.',
+          useMockPhotos
+              ? 'Pick up to 4 demo photos for offline mode.'
+              : 'Pick up to 4 photos from your phone. The first photo is the cover.',
           style: AppTypography.body(),
         ),
         const SizedBox(height: 10),
@@ -373,82 +397,12 @@ class _PhotosStep extends StatelessWidget {
           title: 'Photo tips for ${schema.category}',
           items: schema.photoTips,
         ),
-        if (selected.isNotEmpty) ...[
-          Text(
-            '${selected.length} of 4 selected',
-            style: AppTypography.caption(color: AppColors.forestGreen),
-          ),
-          const SizedBox(height: 10),
-        ],
-        const SizedBox(height: 6),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1,
-          ),
-          itemCount: options.length,
-          itemBuilder: (context, index) {
-            final asset = options[index];
-            final isSelected = selected.contains(asset);
-            final order = selected.indexOf(asset);
-
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => onToggle(asset),
-                borderRadius: BorderRadius.circular(12),
-                child: Ink(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppColors.forestGreen
-                          : AppColors.border,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(11),
-                        child: Image.asset(
-                          asset,
-                          fit: BoxFit.cover,
-                          cacheWidth: 200,
-                        ),
-                      ),
-                      if (isSelected)
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: AppColors.forestGreen.withValues(alpha: 0.28),
-                            borderRadius: BorderRadius.circular(11),
-                          ),
-                        ),
-                      if (isSelected)
-                        Positioned(
-                          top: 6,
-                          right: 6,
-                          child: CircleAvatar(
-                            radius: 12,
-                            backgroundColor: AppColors.forestGreen,
-                            child: Text(
-                              '${order + 1}',
-                              style:
-                                  AppTypography.caption(color: AppColors.white),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
+        const SizedBox(height: 16),
+        ListingPhotoPicker(
+          photos: photos,
+          onChanged: onPhotosChanged,
+          useMockAssets: useMockPhotos,
+          mockAssetOptions: mockAssetOptions,
         ),
       ],
     );
@@ -871,17 +825,11 @@ class _ReviewStep extends StatelessWidget {
           style: AppTypography.body(),
         ),
         const SizedBox(height: 16),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: AspectRatio(
-            aspectRatio: 1.4,
-            child: Image.asset(
-              draft.photoAssets.first,
-              fit: BoxFit.cover,
-              cacheWidth: 500,
-            ),
+        if (draft.photoAssets.isNotEmpty)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: DraftPhotoPreview(source: draft.photoAssets.first),
           ),
-        ),
         const SizedBox(height: 14),
         Text(draft.title, style: AppTypography.h3()),
         const SizedBox(height: 4),

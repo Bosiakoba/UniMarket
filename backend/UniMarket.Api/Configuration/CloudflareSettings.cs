@@ -29,10 +29,14 @@ public class CloudflareSettings
         !string.IsNullOrWhiteSpace(D1DatabaseId) &&
         !string.IsNullOrWhiteSpace(D1ApiToken);
 
+    /// <summary>Public base URL for uploaded objects, e.g. https://pub-xxx.r2.dev</summary>
+    public string R2PublicBaseUrl { get; set; } = string.Empty;
+
     public bool IsR2Configured =>
         R2Enabled &&
         !string.IsNullOrWhiteSpace(R2AccessKeyId) &&
         !string.IsNullOrWhiteSpace(R2SecretAccessKey) &&
         !string.IsNullOrWhiteSpace(R2BucketName) &&
-        !string.IsNullOrWhiteSpace(R2Endpoint);
+        !string.IsNullOrWhiteSpace(R2Endpoint) &&
+        !string.IsNullOrWhiteSpace(R2PublicBaseUrl);
 }

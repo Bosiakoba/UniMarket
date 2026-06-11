@@ -361,7 +361,7 @@ class _RecentListingRow extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: ListingImage(
-                source: listing.imageAsset,
+                source: listing.primaryPhotoSource,
                 width: 52,
                 height: 52,
                 fit: BoxFit.cover,

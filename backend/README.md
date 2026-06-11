@@ -19,15 +19,26 @@ dotnet run
 4. Swagger UI: **http://localhost:5080/swagger**
 5. Point Flutter at `http://<your-pc-lan-ip>:5080` when wiring `ApiClient`.
 
-### Dev auth (until Firebase)
+### Dev auth (Firebase disabled)
 
-Send header on protected routes:
+When `Firebase__Enabled=false`, send header on protected routes:
 
 ```http
 X-Dev-User-Id: alex-demo
 ```
 
-Or call `POST /api/auth/session` with body `{ "devUserId": "alex-demo" }` to bootstrap a user.
+Or call `POST /api/auth/session` with body `{ "devUserId": "alex-demo" }`.
+
+### Firebase auth (production / testing)
+
+When `Firebase__Enabled=true`:
+
+1. Enable **Email/Password** in Firebase Console → Authentication → Sign-in method.
+2. Create test users (or sign up in the app):
+   - `alex.morgan@university.edu` — links to seeded seller **alex-demo**
+   - `jordan@university.edu` — links to seeded buyer **seller-jordan**
+3. App signs in with Firebase, then `POST /api/auth/session` with `{ "firebaseIdToken": "..." }`.
+4. All API calls use `Authorization: Bearer <token>`.
 
 ## Environment variables (Firebase + Cloudflare)
 

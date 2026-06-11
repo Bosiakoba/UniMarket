@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/app_preferences_scope.dart';
 import '../../core/widgets/brand_background.dart';
 import '../../core/widgets/user_session_scope.dart';
@@ -47,6 +48,12 @@ class _SplashScreenState extends State<SplashScreen>
 
     final preferences = AppPreferencesScope.of(context);
     final session = UserSessionScope.of(context);
+    final client = ApiClientScope.of(context);
+
+    if (!session.isLoggedIn) {
+      await session.restoreFromFirebase(client: client);
+    }
+    if (!mounted) return;
 
     if (session.isLoggedIn) {
       await widget.onBootstrap?.call();

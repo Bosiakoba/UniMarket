@@ -100,4 +100,16 @@ class PostListingDraft {
     }
     return null;
   }
+
+  static const maxPhotos = 4;
+
+  static bool isRemotePhoto(String source) {
+    final trimmed = source.trim().toLowerCase();
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+  }
+
+  static bool isBundledAsset(String source) => source.startsWith('assets/');
+
+  static bool isLocalFile(String source) =>
+      !isRemotePhoto(source) && !isBundledAsset(source);
 }

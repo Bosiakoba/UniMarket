@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>UniMarket needs camera access so you can take photos for your listings.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>UniMarket needs photo library access so you can add images to your listings.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'core/api/api_client.dart';
 import 'core/config/api_config.dart';
+import 'core/services/firebase_auth_service.dart';
 import 'core/data/stores/app_preferences_store.dart';
 import 'core/data/stores/message_store.dart';
 import 'core/data/stores/notification_store.dart';
@@ -56,7 +57,10 @@ class _UniMarketAppState extends State<UniMarketApp> {
     final user = _session.currentUser;
     if (user == null) return;
 
-    _apiClient.devUserId = user.id;
+    final token = await FirebaseAuthService.getIdToken();
+    _apiClient.idToken = token;
+    _apiClient.devUserId = token == null ? user.id : null;
+
     await _sellerStore.syncFromApi(_apiClient, user: user);
     await _wishlistStore.syncFromApi(_apiClient);
     await _messageStore.syncFromApi(_apiClient, userId: user.id);

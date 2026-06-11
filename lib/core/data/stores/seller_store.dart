@@ -295,6 +295,105 @@ class SellerStore extends ChangeNotifier {
     return draft;
   }
 
+  Future<String?> publishListing({
+    required PostListingDraft draft,
+    ApiClient? client,
+  }) async {
+    if (client?.idToken == null) {
+      publish(draft);
+      return null;
+    }
+
+    try {
+      final photoUrls = await _resolvePhotoUrls(draft, client!);
+      if (photoUrls.isEmpty) {
+        return 'Add at least one photo from your gallery or camera.';
+      }
+
+      final listPrice = double.parse(draft.price.trim());
+      final pricing = _resolveDiscountPricing(draft, listPrice);
+      final listing = await client.createListing(
+        title: draft.title.trim(),
+        description: draft.description.trim(),
+        price: pricing.salePrice,
+        category: draft.category,
+        condition: draft.condition,
+        meetupLocation: draft.meetupLocation,
+        tags: draft.tags,
+        attributes: draft.attributes,
+        photoUrls: photoUrls,
+        originalPrice: pricing.originalPrice,
+        discountEndsAt: pricing.discountEndsAt,
+        discountDurationDays: pricing.discountDurationDays,
+        availabilityType: draft.availabilityType.name,
+        quantityAvailable: draft.resolvedQuantityAvailable,
+      );
+      _upsertOwnedListing(listing);
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
+  }
+
+  Future<String?> updateListingRemote({
+    required String listingId,
+    required PostListingDraft draft,
+    ApiClient? client,
+  }) async {
+    if (client?.idToken == null) {
+      updateListing(listingId, draft);
+      return null;
+    }
+
+    try {
+      final photoUrls = await _resolvePhotoUrls(draft, client!);
+      if (photoUrls.isEmpty) {
+        return 'Add at least one photo from your gallery or camera.';
+      }
+
+      final listPrice = double.parse(draft.price.trim());
+      final pricing = _resolveDiscountPricing(draft, listPrice);
+      final listing = await client.updateListing(
+        listingId: listingId,
+        title: draft.title.trim(),
+        description: draft.description.trim(),
+        price: pricing.salePrice,
+        category: draft.category,
+        condition: draft.condition,
+        meetupLocation: draft.meetupLocation,
+        tags: draft.tags,
+        attributes: draft.attributes,
+        photoUrls: photoUrls,
+        originalPrice: pricing.originalPrice,
+        discountEndsAt: pricing.discountEndsAt,
+        discountDurationDays: pricing.discountDurationDays,
+        availabilityType: draft.availabilityType.name,
+        quantityAvailable: draft.resolvedQuantityAvailable,
+      );
+      _upsertOwnedListing(listing);
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
+  }
+
+  Future<List<String>> _resolvePhotoUrls(
+    PostListingDraft draft,
+    ApiClient client,
+  ) async {
+    final urls = <String>[];
+    for (final photo in draft.photoAssets) {
+      if (PostListingDraft.isRemotePhoto(photo)) {
+        urls.add(photo);
+      } else if (PostListingDraft.isLocalFile(photo)) {
+        urls.add(await client.uploadListingPhoto(photo));
+      }
+    }
+    return urls;
+  }
+
   ListingItem publish(PostListingDraft draft) {
     final listing = _listingFromDraft(
       draft,

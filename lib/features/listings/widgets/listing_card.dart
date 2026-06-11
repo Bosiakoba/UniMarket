@@ -48,7 +48,7 @@ class ListingCard extends StatelessWidget {
                   children: [
                     Positioned.fill(
                       child: ListingImage(
-                        source: listing.imageAsset,
+                        source: listing.primaryPhotoSource,
                         fit: BoxFit.cover,
                         cacheWidth: 280,
                         borderRadius: BorderRadius.circular(12),

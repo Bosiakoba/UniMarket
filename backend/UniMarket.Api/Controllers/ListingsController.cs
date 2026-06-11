@@ -88,6 +88,11 @@ public class ListingsController(
         if (user is null) return NotFound();
         if (!user.IsSeller) return Forbid();
 
+        if (!user.IsSeller)
+        {
+            user.IsSeller = true;
+        }
+
         var id = Guid.NewGuid().ToString("N")[..12];
         var listing = new Listing
         {

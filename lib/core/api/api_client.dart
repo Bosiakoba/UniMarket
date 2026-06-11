@@ -26,24 +26,147 @@ class ApiClient {
 
   final String baseUrl;
   String? devUserId;
+  String? idToken;
 
   Map<String, String> get _headers => {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        if (devUserId != null) 'X-Dev-User-Id': devUserId!,
+        if (idToken != null) 'Authorization': 'Bearer $idToken',
+        if (idToken == null && devUserId != null)
+          'X-Dev-User-Id': devUserId!,
+      };
+
+  Map<String, String> get _authHeaders => {
+        'Accept': 'application/json',
+        if (idToken != null) 'Authorization': 'Bearer $idToken',
+        if (idToken == null && devUserId != null)
+          'X-Dev-User-Id': devUserId!,
       };
 
   Uri _uri(String path, [Map<String, String>? query]) =>
       Uri.parse('$baseUrl$path').replace(queryParameters: query);
 
-  Future<Map<String, dynamic>> bootstrapSession({required String devUserId}) async {
-    this.devUserId = devUserId;
+  Future<Map<String, dynamic>> bootstrapSession({
+    String? firebaseIdToken,
+    String? devUserId,
+  }) async {
+    if (firebaseIdToken != null) {
+      idToken = firebaseIdToken;
+      this.devUserId = null;
+    } else if (devUserId != null) {
+      this.devUserId = devUserId;
+      idToken = null;
+    }
+
+    final body = firebaseIdToken != null
+        ? {'firebaseIdToken': firebaseIdToken}
+        : {'devUserId': devUserId};
+
     final response = await http.post(
       _uri('/api/auth/session'),
       headers: _headers,
-      body: jsonEncode({'devUserId': devUserId}),
+      body: jsonEncode(body),
     );
     return _decodeObject(response, errorLabel: 'Session failed');
+  }
+
+  Future<String> uploadListingPhoto(String filePath) async {
+    final request = http.MultipartRequest(
+      'POST',
+      _uri('/api/uploads/listing-photos'),
+    );
+    request.headers.addAll(_authHeaders);
+    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    final json = _decodeObject(response, errorLabel: 'Photo upload failed');
+    final url = json['url'] as String?;
+    if (url == null || url.isEmpty) {
+      throw ApiException('Photo upload failed: missing URL');
+    }
+    return url;
+  }
+
+  Future<ListingItem> createListing({
+    required String title,
+    required String description,
+    required double price,
+    required String category,
+    required String? condition,
+    required String? meetupLocation,
+    required List<String> tags,
+    required Map<String, String> attributes,
+    required List<String> photoUrls,
+    double? originalPrice,
+    DateTime? discountEndsAt,
+    int? discountDurationDays,
+    required String availabilityType,
+    int? quantityAvailable,
+  }) async {
+    final response = await http.post(
+      _uri('/api/listings'),
+      headers: _headers,
+      body: jsonEncode({
+        'title': title,
+        'description': description,
+        'price': price,
+        'category': category,
+        'condition': condition,
+        'meetupLocation': meetupLocation,
+        'tags': tags,
+        'attributes': attributes,
+        'photoUrls': photoUrls,
+        'originalPrice': originalPrice,
+        'discountEndsAt': discountEndsAt?.toUtc().toIso8601String(),
+        'discountDurationDays': discountDurationDays,
+        'availabilityType': availabilityType,
+        'quantityAvailable': quantityAvailable,
+      }),
+    );
+    final json = _decodeObject(response, errorLabel: 'Could not publish listing');
+    return ListingMapper.fromJson(json);
+  }
+
+  Future<ListingItem> updateListing({
+    required String listingId,
+    required String title,
+    required String description,
+    required double price,
+    required String category,
+    required String? condition,
+    required String? meetupLocation,
+    required List<String> tags,
+    required Map<String, String> attributes,
+    required List<String> photoUrls,
+    double? originalPrice,
+    DateTime? discountEndsAt,
+    int? discountDurationDays,
+    required String availabilityType,
+    int? quantityAvailable,
+  }) async {
+    final response = await http.put(
+      _uri('/api/listings/$listingId'),
+      headers: _headers,
+      body: jsonEncode({
+        'title': title,
+        'description': description,
+        'price': price,
+        'category': category,
+        'condition': condition,
+        'meetupLocation': meetupLocation,
+        'tags': tags,
+        'attributes': attributes,
+        'photoUrls': photoUrls,
+        'originalPrice': originalPrice,
+        'discountEndsAt': discountEndsAt?.toUtc().toIso8601String(),
+        'discountDurationDays': discountDurationDays,
+        'availabilityType': availabilityType,
+        'quantityAvailable': quantityAvailable,
+      }),
+    );
+    final json = _decodeObject(response, errorLabel: 'Could not update listing');
+    return ListingMapper.fromJson(json);
   }
 
   Future<List<ListingItem>> fetchListings({String? query, String sort = 'verified'}) async {
@@ -139,7 +262,7 @@ class ApiClient {
       headers: _headers,
       body: jsonEncode({
         'units': units,
-        if (buyerUserId != null) 'buyerUserId': buyerUserId,
+        'buyerUserId': ?buyerUserId,
       }),
     );
     final saleJson =

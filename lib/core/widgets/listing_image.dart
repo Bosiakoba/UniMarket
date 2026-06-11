@@ -21,21 +21,29 @@ class ListingImage extends StatelessWidget {
   final BorderRadius? borderRadius;
   final int? cacheWidth;
 
-  static bool isNetworkSource(String value) =>
-      value.startsWith('http://') || value.startsWith('https://');
+  static bool isNetworkSource(String value) {
+    final trimmed = value.trim().toLowerCase();
+    return trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.contains('://');
+  }
 
   /// placehold.co defaults to SVG; Android Flutter cannot decode that.
   static String normalizeSource(String value) {
-    if (!isNetworkSource(value) || !value.contains('placehold.co')) {
-      return value;
+    final trimmed = value.trim();
+    if (!isNetworkSource(trimmed) || !trimmed.contains('placehold.co')) {
+      return trimmed;
     }
-    final uri = Uri.tryParse(value);
-    if (uri == null) return value;
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return trimmed;
     final segments = uri.pathSegments;
-    if (segments.isEmpty) return value;
+    if (segments.isEmpty) return trimmed;
     final last = segments.last.toLowerCase();
-    if (last == 'png' || last == 'jpg' || last == 'jpeg' || last == 'webp') {
-      return value;
+    if (last == 'png' ||
+        last == 'jpg' ||
+        last == 'jpeg' ||
+        last == 'webp') {
+      return trimmed;
     }
     final sizeSegment = segments.first;
     final normalizedPath = '/$sizeSegment/png';
@@ -46,39 +54,51 @@ class ListingImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolvedSource = normalizeSource(source);
     final child = isNetworkSource(resolvedSource)
-        ? Image.network(
-            resolvedSource,
-            fit: fit,
-            width: width,
-            height: height,
-            cacheWidth: cacheWidth,
-            errorBuilder: (_, __, ___) => _fallback(),
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return Container(
-                width: width,
-                height: height,
-                color: Colors.grey.shade200,
-                alignment: Alignment.center,
-                child: const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              );
-            },
-          )
-        : Image.asset(
-            source,
-            fit: fit,
-            width: width,
-            height: height,
-            cacheWidth: cacheWidth,
-            errorBuilder: (_, __, ___) => _fallback(),
-          );
+        ? _network(resolvedSource)
+        : _asset(resolvedSource);
 
-    if (borderRadius == null) return child;
-    return ClipRRect(borderRadius: borderRadius!, child: child);
+    return _wrap(child);
+  }
+
+  Widget _network(String url) {
+    return Image.network(
+      url,
+      fit: fit,
+      width: width,
+      height: height,
+      cacheWidth: cacheWidth,
+      errorBuilder: (_, _, _) => _fallback(),
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return Container(
+          width: width,
+          height: height,
+          color: Colors.grey.shade200,
+          alignment: Alignment.center,
+          child: const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _asset(String assetPath) {
+    return Image.asset(
+      assetPath,
+      fit: fit,
+      width: width,
+      height: height,
+      cacheWidth: cacheWidth,
+      errorBuilder: (_, _, _) {
+        if (isNetworkSource(source) || isNetworkSource(assetPath)) {
+          return _network(normalizeSource(source));
+        }
+        return _fallback();
+      },
+    );
   }
 
   Widget _fallback() {
@@ -89,5 +109,16 @@ class ListingImage extends StatelessWidget {
       height: height,
       cacheWidth: cacheWidth,
     );
+  }
+
+  Widget _wrap(Widget child) {
+    var result = child;
+    if (width != null || height != null) {
+      result = SizedBox(width: width, height: height, child: result);
+    }
+    if (borderRadius != null) {
+      result = ClipRRect(borderRadius: borderRadius!, child: result);
+    }
+    return result;
   }
 }

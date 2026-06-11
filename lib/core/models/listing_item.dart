@@ -92,8 +92,20 @@ class ListingItem {
   List<String> get displayPhotos =>
       photoUrls.isNotEmpty ? photoUrls : [imageAsset];
 
-  bool get usesNetworkImages =>
-      displayPhotos.any((p) => p.startsWith('http'));
+  String get primaryPhotoSource {
+    for (final photo in displayPhotos) {
+      final trimmed = photo.trim();
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+    return imageAsset;
+  }
+
+  bool get usesNetworkImages => displayPhotos.any((photo) {
+        final trimmed = photo.trim().toLowerCase();
+        return trimmed.startsWith('http://') ||
+            trimmed.startsWith('https://') ||
+            trimmed.contains('://');
+      });
   String get sellerInitial =>
       sellerName.isNotEmpty ? sellerName[0].toUpperCase() : '?';
   String get ratingLabel =>

@@ -5,6 +5,7 @@ import '../../../core/models/listing_item.dart';
 import '../../../core/models/message_thread.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/listing_image.dart';
 
 class ThreadTile extends StatelessWidget {
   const ThreadTile({
@@ -186,11 +187,12 @@ class _ListingContextRow extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.asset(
-              listing.imageAsset,
+            child: ListingImage(
+              source: listing.primaryPhotoSource,
               width: 40,
               height: 40,
               fit: BoxFit.cover,
+              cacheWidth: 80,
             ),
           ),
           const SizedBox(width: 10),

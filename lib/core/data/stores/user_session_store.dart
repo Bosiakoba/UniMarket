@@ -1,7 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../api/api_client.dart';
 import '../../models/app_user.dart';
+import '../../services/firebase_auth_service.dart';
 
 class UserSessionStore extends ChangeNotifier {
   AppUser? currentUser;
@@ -36,31 +38,27 @@ class UserSessionStore extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final devUserId = devUserIdForEmail(email);
-      final profile = await client.bootstrapSession(devUserId: devUserId);
-      currentUser = ListingMapper.userFromJson(profile);
-      return null;
+      await FirebaseAuthService.signInWithEmailPassword(
+        email: email,
+        password: password,
+      );
+      return await _completeApiSession(client);
+    } on FirebaseAuthException catch (error) {
+      return FirebaseAuthService.mapAuthError(error);
     } catch (error) {
       lastAuthError = error.toString();
-      currentUser = _userFromEmail(email.trim().toLowerCase(), isNew: false);
-      client.devUserId = currentUser!.id;
-      return null;
+      return _offlineFallback(client, email);
     } finally {
       isSigningIn = false;
       notifyListeners();
     }
   }
 
-  String? signIn({required String email, required String password}) {
-    final validationError = _validateCredentials(email, password);
-    if (validationError != null) return validationError;
-
-    currentUser = _userFromEmail(email.trim().toLowerCase(), isNew: false);
-    notifyListeners();
-    return null;
-  }
-
-  String? signUp({required String email, required String password}) {
+  Future<String?> signUpWithApi({
+    required ApiClient client,
+    required String email,
+    required String password,
+  }) async {
     final trimmedEmail = email.trim().toLowerCase();
     if (trimmedEmail.isEmpty) return 'Enter your university email.';
     if (!_isCampusEmail(trimmedEmail)) {
@@ -70,9 +68,77 @@ class UserSessionStore extends ChangeNotifier {
       return 'Password must be at least 6 characters.';
     }
 
-    currentUser = _userFromEmail(trimmedEmail, isNew: true);
+    isSigningIn = true;
+    lastAuthError = null;
     notifyListeners();
+
+    try {
+      await FirebaseAuthService.signUpWithEmailPassword(
+        email: trimmedEmail,
+        password: password,
+      );
+      return await _completeApiSession(client);
+    } on FirebaseAuthException catch (error) {
+      return FirebaseAuthService.mapAuthError(error);
+    } catch (error) {
+      lastAuthError = error.toString();
+      return error.toString();
+    } finally {
+      isSigningIn = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> restoreFromFirebase({required ApiClient client}) async {
+    if (FirebaseAuthService.currentUser == null) return false;
+
+    try {
+      await _completeApiSession(client);
+      return currentUser != null;
+    } catch (_) {
+      await FirebaseAuthService.signOut();
+      client
+        ..idToken = null
+        ..devUserId = null;
+      currentUser = null;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<String?> _completeApiSession(ApiClient client) async {
+    final idToken = await FirebaseAuthService.getIdToken();
+    if (idToken == null) {
+      return 'Could not obtain a sign-in token.';
+    }
+
+    try {
+      final profile = await client.bootstrapSession(firebaseIdToken: idToken);
+      currentUser = ListingMapper.userFromJson(profile);
+      client
+        ..idToken = idToken
+        ..devUserId = null;
+      lastAuthError = null;
+      return null;
+    } catch (error) {
+      lastAuthError = error.toString();
+      rethrow;
+    }
+  }
+
+  String? _offlineFallback(ApiClient client, String email) {
+    currentUser = _userFromEmail(email.trim().toLowerCase(), isNew: false);
+    client
+      ..devUserId = currentUser!.id
+      ..idToken = null;
     return null;
+  }
+
+  Future<void> signOut() async {
+    await FirebaseAuthService.signOut();
+    currentUser = null;
+    lastAuthError = null;
+    notifyListeners();
   }
 
   void completeProfile({
@@ -114,12 +180,6 @@ class UserSessionStore extends ChangeNotifier {
       campus: campus ?? user.campus,
       phone: phone ?? user.phone,
     );
-    notifyListeners();
-  }
-
-  void signOut() {
-    currentUser = null;
-    lastAuthError = null;
     notifyListeners();
   }
 

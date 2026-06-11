@@ -18,9 +18,13 @@ import 'my_reports_screen.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  static void signOut(BuildContext context) {
-    ApiClientScope.of(context).devUserId = null;
-    UserSessionScope.of(context).signOut();
+  static Future<void> signOut(BuildContext context) async {
+    await UserSessionScope.of(context).signOut();
+    if (!context.mounted) return;
+
+    ApiClientScope.of(context)
+      ..idToken = null
+      ..devUserId = null;
     SellerStoreScope.of(context).resetForSignOut();
     MessageStoreScope.of(context).clearAll();
     WishlistStoreScope.of(context).clear();

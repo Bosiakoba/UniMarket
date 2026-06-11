@@ -48,6 +48,8 @@ public record ListingDto(
     IReadOnlyList<string> PhotoUrls,
     DateTime CreatedAt);
 
+public record UploadPhotoResponse(string Url);
+
 public record CreateListingRequest(
     string Title,
     string Description,

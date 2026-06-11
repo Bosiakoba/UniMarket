@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/models/listing_item.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/listing_image.dart';
 
 class ListingAttachmentCard extends StatelessWidget {
   const ListingAttachmentCard({
@@ -19,7 +20,10 @@ class ListingAttachmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final thumbSize = compact ? 48.0 : 56.0;
+
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppColors.surfaceMuted,
@@ -28,13 +32,15 @@ class ListingAttachmentCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.asset(
-              listing.imageAsset,
-              width: compact ? 48 : 56,
-              height: compact ? 48 : 56,
+          SizedBox(
+            width: thumbSize,
+            height: thumbSize,
+            child: ListingImage(
+              source: listing.primaryPhotoSource,
+              width: thumbSize,
+              height: thumbSize,
               fit: BoxFit.cover,
+              borderRadius: BorderRadius.circular(10),
               cacheWidth: 120,
             ),
           ),

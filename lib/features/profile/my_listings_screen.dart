@@ -233,7 +233,7 @@ class _ListingRecordCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: ListingImage(
-                      source: listing.imageAsset,
+                      source: listing.primaryPhotoSource,
                       width: 72,
                       height: 72,
                       fit: BoxFit.cover,
