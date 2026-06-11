@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_assets.dart';
+import '../../core/constants/market_categories.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/brand_background.dart';
 import '../../core/widgets/figma_asset.dart';
 import '../../core/widgets/uni_button.dart';
+import '../../core/widgets/user_session_scope.dart';
 import '../../routes/app_routes.dart';
 
 class CategorySelectionScreen extends StatefulWidget {
@@ -18,19 +20,10 @@ class CategorySelectionScreen extends StatefulWidget {
 }
 
 class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
-  static const _categories = [
-    'Electronics & Gadget',
-    'Fashion & Style',
+  final Set<String> _selected = {
+    'Electronics & Gadgets',
     'Books & Stationery',
-    'Food & Snacks',
-    'Hostel & Room Essentials',
-    'Transportation',
-    'Services',
-    'Tickets & Events',
-    'Health & Beauty',
-  ];
-
-  final Set<String> _selected = {'Electronics & Gadget', 'Transportation'};
+  };
 
   void _toggle(String category) {
     setState(() {
@@ -40,6 +33,11 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         _selected.add(category);
       }
     });
+  }
+
+  void _continue() {
+    UserSessionScope.of(context).setInterestCategories(_selected);
+    Navigator.of(context).pushReplacementNamed(AppRoutes.home);
   }
 
   @override
@@ -60,7 +58,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'We\'ll personalize your campus feed',
+                  'Pick categories to personalize your campus feed',
                   textAlign: TextAlign.center,
                   style: AppTypography.body(
                     color: AppColors.white.withValues(alpha: 0.88),
@@ -82,7 +80,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                       spacing: 10,
                       runSpacing: 10,
                       alignment: WrapAlignment.center,
-                      children: _categories.map((category) {
+                      children: MarketCategories.listingCategories.map((category) {
                         final isSelected = _selected.contains(category);
                         return GestureDetector(
                           onTap: () => _toggle(category),
@@ -122,9 +120,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                   label: 'Continue',
                   width: 240,
                   variant: UniButtonVariant.secondary,
-                  onPressed: () => Navigator.of(context).pushReplacementNamed(
-                    AppRoutes.home,
-                  ),
+                  onPressed: _selected.isEmpty ? null : _continue,
                 ),
                 const SizedBox(height: AppSpacing.lg),
               ],

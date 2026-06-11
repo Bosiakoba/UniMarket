@@ -4,14 +4,65 @@ import '../../core/constants/app_assets.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/app_preferences_scope.dart';
+import '../../core/widgets/brand_background.dart';
 import '../../core/widgets/figma_asset.dart';
 import '../../core/widgets/uni_button.dart';
 import '../../core/widgets/uni_text_field.dart';
+import '../../core/widgets/user_session_scope.dart';
 import '../../routes/app_routes.dart';
-import '../../core/widgets/brand_background.dart';
 
-class ProfileCompletionScreen extends StatelessWidget {
+class ProfileCompletionScreen extends StatefulWidget {
   const ProfileCompletionScreen({super.key});
+
+  @override
+  State<ProfileCompletionScreen> createState() =>
+      _ProfileCompletionScreenState();
+}
+
+class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
+  final _nameController = TextEditingController();
+  final _universityController = TextEditingController(
+    text: 'State University',
+  );
+  final _campusController = TextEditingController(text: 'Main Campus');
+  final _phoneController = TextEditingController();
+  var _hydrated = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hydrated) return;
+    _hydrated = true;
+    final user = UserSessionScope.of(context).currentUser;
+    if (user != null) {
+      _nameController.text = user.fullName;
+      _universityController.text = user.university;
+      _campusController.text = user.campus;
+      _phoneController.text = user.phone ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _universityController.dispose();
+    _campusController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  void _continue() {
+    final session = UserSessionScope.of(context);
+    session.completeProfile(
+      fullName: _nameController.text,
+      university: _universityController.text,
+      campus: _campusController.text,
+      phone: _phoneController.text,
+    );
+    AppPreferencesScope.of(context).completeProfileSetup();
+    Navigator.of(context).pushReplacementNamed(AppRoutes.categorySelection);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,11 +99,20 @@ class ProfileCompletionScreen extends StatelessWidget {
                         fit: BoxFit.contain,
                       ),
                       const SizedBox(height: AppSpacing.xl),
-                      const UniTextField(hint: 'Full name', prefixIcon: Icons.person_outline),
+                      UniTextField(
+                        controller: _nameController,
+                        hint: 'Full name',
+                        prefixIcon: Icons.person_outline,
+                      ),
                       const SizedBox(height: AppSpacing.md),
-                      const UniTextField(hint: 'University', prefixIcon: Icons.school_outlined),
+                      UniTextField(
+                        controller: _universityController,
+                        hint: 'University',
+                        prefixIcon: Icons.school_outlined,
+                      ),
                       const SizedBox(height: AppSpacing.md),
-                      const UniTextField(
+                      UniTextField(
+                        controller: _phoneController,
                         hint: 'Phone number',
                         keyboardType: TextInputType.phone,
                         prefixIcon: Icons.phone_outlined,
@@ -67,9 +127,7 @@ class ProfileCompletionScreen extends StatelessWidget {
                   label: 'Continue',
                   width: 240,
                   variant: UniButtonVariant.secondary,
-                  onPressed: () => Navigator.of(context).pushReplacementNamed(
-                    AppRoutes.categorySelection,
-                  ),
+                  onPressed: _continue,
                 ),
               ),
             ],

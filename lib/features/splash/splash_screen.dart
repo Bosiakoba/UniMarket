@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/app_preferences_scope.dart';
 import '../../core/widgets/brand_background.dart';
+import '../../core/widgets/user_session_scope.dart';
 import '../../routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, this.onBootstrapDemo});
+
+  final VoidCallback? onBootstrapDemo;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -40,6 +44,21 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _goNext() {
     if (!mounted) return;
+
+    final preferences = AppPreferencesScope.of(context);
+    final session = UserSessionScope.of(context);
+
+    if (session.isLoggedIn) {
+      widget.onBootstrapDemo?.call();
+      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+      return;
+    }
+
+    if (preferences.onboardingComplete) {
+      Navigator.of(context).pushReplacementNamed(AppRoutes.signIn);
+      return;
+    }
+
     Navigator.of(context).pushReplacementNamed(AppRoutes.onboarding);
   }
 

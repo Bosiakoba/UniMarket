@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/app_preferences_scope.dart';
 import '../../core/widgets/get_started_button.dart';
 import '../../routes/app_routes.dart';
 import 'widgets/onboarding_card_stack.dart';
@@ -54,10 +55,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
       return;
     }
+    AppPreferencesScope.of(context).completeOnboarding();
     Navigator.of(context).pushReplacementNamed(AppRoutes.signIn);
   }
 
   void _onSkip() {
+    AppPreferencesScope.of(context).completeOnboarding();
     Navigator.of(context).pushReplacementNamed(AppRoutes.signIn);
   }
 
