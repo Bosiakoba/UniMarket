@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
 
+import 'core/data/stores/app_preferences_store.dart';
 import 'core/data/stores/message_store.dart';
+import 'core/data/stores/notification_store.dart';
+import 'core/data/stores/report_store.dart';
+import 'core/data/stores/review_store.dart';
 import 'core/data/stores/seller_store.dart';
+import 'core/data/stores/user_session_store.dart';
+import 'core/data/stores/wishlist_store.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/app_preferences_scope.dart';
 import 'core/widgets/message_store_scope.dart';
-import 'core/widgets/mobile_viewport.dart';
+import 'core/widgets/notification_store_scope.dart';
+import 'core/widgets/report_store_scope.dart';
+import 'core/widgets/review_store_scope.dart';
 import 'core/widgets/seller_store_scope.dart';
+import 'core/widgets/user_session_scope.dart';
+import 'core/widgets/wishlist_store_scope.dart';
+import 'core/widgets/mobile_viewport.dart';
 import 'features/auth/forgot_password_screen.dart';
 import 'features/auth/sign_in_screen.dart';
 import 'features/auth/sign_up_screen.dart';
@@ -27,37 +39,80 @@ class UniMarketApp extends StatefulWidget {
 }
 
 class _UniMarketAppState extends State<UniMarketApp> {
-  final _messageStore = MessageStore();
+  final _preferences = AppPreferencesStore();
+  final _session = UserSessionStore();
   final _sellerStore = SellerStore();
+  final _messageStore = MessageStore();
+  final _wishlistStore = WishlistStore();
+  final _notificationStore = NotificationStore();
+  final _reviewStore = ReviewStore();
+  final _reportStore = ReportStore();
+
+  void bootstrapDemoSellerIfNeeded() {
+    if (_session.isDemoAccount) {
+      final user = _session.currentUser!;
+      _sellerStore.loadDemoSellerState(
+        displayName: user.fullName,
+        email: user.email,
+      );
+      _messageStore.resetToSeed();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MessageStoreScope(
-      store: _messageStore,
-      child: SellerStoreScope(
-        store: _sellerStore,
-        child: MaterialApp(
-          title: 'Uni Market',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
-          builder: (context, child) =>
-              MobileViewport(child: child ?? const SizedBox.shrink()),
-          initialRoute: AppRoutes.splash,
-          routes: {
-            AppRoutes.splash: (_) => const SplashScreen(),
-            AppRoutes.onboarding: (_) => const OnboardingScreen(),
-            AppRoutes.signIn: (_) => const SignInScreen(),
-            AppRoutes.signUp: (_) => const SignUpScreen(),
-            AppRoutes.forgotPassword: (_) => const ForgotPasswordScreen(),
-            AppRoutes.verification: (_) => const VerificationScreen(),
-            AppRoutes.profileCompletion: (_) =>
-                const ProfileCompletionScreen(),
-            AppRoutes.categorySelection: (_) =>
-                const CategorySelectionScreen(),
-            AppRoutes.home: (_) => const MainShell(),
-            AppRoutes.messages: (_) => const MessagesScreen(),
-            AppRoutes.notifications: (_) => const NotificationsScreen(),
-          },
+    return AppPreferencesScope(
+      store: _preferences,
+      child: UserSessionScope(
+        store: _session,
+        child: SellerStoreScope(
+          store: _sellerStore,
+          child: MessageStoreScope(
+            store: _messageStore,
+            child: WishlistStoreScope(
+              store: _wishlistStore,
+              child: NotificationStoreScope(
+                store: _notificationStore,
+                child: ReviewStoreScope(
+                  store: _reviewStore,
+                  child: ReportStoreScope(
+                    store: _reportStore,
+                    child: MaterialApp(
+                      title: 'Uni Market',
+                      debugShowCheckedModeBanner: false,
+                      theme: AppTheme.light,
+                      builder: (context, child) => MobileViewport(
+                        child: child ?? const SizedBox.shrink(),
+                      ),
+                      initialRoute: AppRoutes.splash,
+                      routes: {
+                        AppRoutes.splash: (_) => SplashScreen(
+                              onBootstrapDemo: bootstrapDemoSellerIfNeeded,
+                            ),
+                        AppRoutes.onboarding: (_) => const OnboardingScreen(),
+                        AppRoutes.signIn: (_) => SignInScreen(
+                              onSignedIn: bootstrapDemoSellerIfNeeded,
+                            ),
+                        AppRoutes.signUp: (_) => const SignUpScreen(),
+                        AppRoutes.forgotPassword: (_) =>
+                            const ForgotPasswordScreen(),
+                        AppRoutes.verification: (_) =>
+                            const VerificationScreen(),
+                        AppRoutes.profileCompletion: (_) =>
+                            const ProfileCompletionScreen(),
+                        AppRoutes.categorySelection: (_) =>
+                            const CategorySelectionScreen(),
+                        AppRoutes.home: (_) => const MainShell(),
+                        AppRoutes.messages: (_) => const MessagesScreen(),
+                        AppRoutes.notifications: (_) =>
+                            const NotificationsScreen(),
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
