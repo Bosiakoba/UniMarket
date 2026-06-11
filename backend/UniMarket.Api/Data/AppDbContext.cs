@@ -15,6 +15,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ListingReport> ListingReports => Set<ListingReport>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<SaleRecord> SaleRecords => Set<SaleRecord>();
+    public DbSet<SaleConfirmation> SaleConfirmations => Set<SaleConfirmation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

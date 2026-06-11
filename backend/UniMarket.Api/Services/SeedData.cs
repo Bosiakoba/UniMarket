@@ -131,6 +131,35 @@ public static class SeedData
                 CreatedAt = DateTime.UtcNow.AddDays(-7),
             });
 
+        var hubEnquiryChat = new Chat
+        {
+            Id = "chat-p2-jordan",
+            ListingId = hubDeal.Id,
+            BuyerId = sellers[0].Id,
+            SellerId = demoUser.Id,
+            CreatedAt = DateTime.UtcNow.AddHours(-6),
+        };
+        db.Chats.Add(hubEnquiryChat);
+        db.Messages.AddRange(
+            new Message
+            {
+                Id = "msg-hub-1",
+                ChatId = hubEnquiryChat.Id,
+                SenderId = sellers[0].Id,
+                Content = "Hi! Is the USB-C hub still available?",
+                MessageType = "text",
+                SentAt = DateTime.UtcNow.AddHours(-5),
+            },
+            new Message
+            {
+                Id = "msg-hub-2",
+                ChatId = hubEnquiryChat.Id,
+                SenderId = demoUser.Id,
+                Content = "Yes — I can meet at the library this afternoon.",
+                MessageType = "text",
+                SentAt = DateTime.UtcNow.AddHours(-4),
+            });
+
         await db.SaveChangesAsync();
     }
 
@@ -166,7 +195,7 @@ public static class SeedData
                 {
                     Id = $"{id}-img-1",
                     ListingId = id,
-                    ImageUrl = $"https://placehold.co/600x600?text={Uri.EscapeDataString(title)}",
+                    ImageUrl = $"https://placehold.co/600x600/png?text={Uri.EscapeDataString(title)}",
                     SortOrder = 0,
                 },
             ],

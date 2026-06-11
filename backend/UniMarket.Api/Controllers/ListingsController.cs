@@ -12,7 +12,8 @@ namespace UniMarket.Api.Controllers;
 public class ListingsController(
     AppDbContext db,
     CurrentUserService currentUser,
-    ListingMapper mapper) : ControllerBase
+    ListingMapper mapper,
+    SaleConfirmationService saleConfirmation) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ListingDto>>> Search(
@@ -260,6 +261,7 @@ public class ListingsController(
 
         db.SaleRecords.Add(sale);
         await db.SaveChangesAsync(ct);
+        await saleConfirmation.NotifyListingEnquirersAsync(listing, sale, ct);
 
         return Ok(new SaleRecordDto(
             sale.Id,

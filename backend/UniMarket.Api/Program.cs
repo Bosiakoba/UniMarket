@@ -18,6 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<ListingMapper>();
+builder.Services.AddScoped<SaleConfirmationService>();
 
 builder.Services.AddCors(options =>
 {

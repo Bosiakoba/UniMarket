@@ -69,6 +69,9 @@ public class Message
     public string ChatId { get; set; } = string.Empty;
     public string SenderId { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
+    public string MessageType { get; set; } = "text";
+    public string? SaleId { get; set; }
+    public string? ConfirmationStatus { get; set; }
     public DateTime SentAt { get; set; } = DateTime.UtcNow;
 }
 
@@ -122,4 +125,17 @@ public class SaleRecord
     public string Status { get; set; } = "seller_reported";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ConfirmedAt { get; set; }
+    public ICollection<SaleConfirmation> Confirmations { get; set; } = new List<SaleConfirmation>();
+}
+
+public class SaleConfirmation
+{
+    public string Id { get; set; } = string.Empty;
+    public string SaleId { get; set; } = string.Empty;
+    public SaleRecord? Sale { get; set; }
+    public string BuyerId { get; set; } = string.Empty;
+    public string ChatId { get; set; } = string.Empty;
+    public string Status { get; set; } = "pending";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? RespondedAt { get; set; }
 }

@@ -78,12 +78,27 @@ public record SaleRecordDto(
     int? QuantityRemaining,
     string ListingStatus);
 
+public record SaleRespondRequest(bool Confirmed);
+
+public record MessageDto(
+    string Id,
+    string ChatId,
+    string SenderId,
+    string Content,
+    string MessageType,
+    string? SaleId,
+    string? ConfirmationStatus,
+    DateTime SentAt,
+    string TimeLabel,
+    bool CanRespond);
+
 public record SellerApplicationRequest(string StoreName, string? IdDocumentUrl);
 
 public record ChatDto(
     string Id,
     string ListingId,
     string SellerName,
+    string OtherPartyName,
     string? ListingTitle,
     string? ListingImageUrl,
     decimal? ListingPrice,

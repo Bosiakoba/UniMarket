@@ -30,6 +30,32 @@ public class ChatsController(AppDbContext db, CurrentUserService currentUser) : 
         return Ok(dtos);
     }
 
+    [HttpGet("{chatId}/messages")]
+    public async Task<ActionResult<IEnumerable<MessageDto>>> Messages(string chatId, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return Unauthorized();
+
+        var chat = await db.Chats.FindAsync([chatId], ct);
+        if (chat is null) return NotFound();
+        if (chat.BuyerId != currentUser.UserId && chat.SellerId != currentUser.UserId)
+        {
+            return Forbid();
+        }
+
+        var messages = await db.Messages
+            .Where(m => m.ChatId == chatId)
+            .OrderBy(m => m.SentAt)
+            .ToListAsync(ct);
+
+        var dtos = new List<MessageDto>();
+        foreach (var message in messages)
+        {
+            dtos.Add(await ToMessageDto(message, ct));
+        }
+
+        return Ok(dtos);
+    }
+
     [HttpPost]
     public async Task<ActionResult<ChatDto>> Open(
         [FromQuery] string listingId,
@@ -58,7 +84,7 @@ public class ChatsController(AppDbContext db, CurrentUserService currentUser) : 
 
         var chat = new Chat
         {
-            Id = Guid.NewGuid().ToString("N"),
+            Id = Guid.NewGuid().ToString("N")[..12],
             ListingId = listingId,
             BuyerId = currentUser.UserId!,
             SellerId = listing.UserId,
@@ -91,10 +117,11 @@ public class ChatsController(AppDbContext db, CurrentUserService currentUser) : 
 
         db.Messages.Add(new Message
         {
-            Id = Guid.NewGuid().ToString("N"),
+            Id = Guid.NewGuid().ToString("N")[..12],
             ChatId = chatId,
             SenderId = currentUser.UserId!,
             Content = request.Content.Trim(),
+            MessageType = "text",
         });
 
         await db.SaveChangesAsync(ct);
@@ -111,16 +138,66 @@ public class ChatsController(AppDbContext db, CurrentUserService currentUser) : 
         var seller = listing?.Owner
             ?? await db.Users.FindAsync([chat.SellerId], ct);
 
+        var otherUserId = chat.BuyerId == currentUser.UserId
+            ? chat.SellerId
+            : chat.BuyerId;
+        var otherParty = await db.Users.FindAsync([otherUserId], ct);
+
         var image = listing?.Images.OrderBy(i => i.SortOrder).FirstOrDefault()?.ImageUrl;
+        var hasUnread = await db.Messages.AnyAsync(
+            m => m.ChatId == chat.Id &&
+                 m.SenderId != currentUser.UserId &&
+                 m.MessageType == SaleConfirmationService.MessageTypeSaleConfirmation &&
+                 m.ConfirmationStatus == "pending",
+            ct);
 
         return new ChatDto(
             chat.Id,
             chat.ListingId,
             seller?.FullName ?? "Seller",
+            otherParty?.FullName ?? "User",
             listing?.Title,
             image,
             listing?.Price,
-            false,
+            hasUnread,
             chat.CreatedAt);
+    }
+
+    private async Task<MessageDto> ToMessageDto(Message message, CancellationToken ct)
+    {
+        var canRespond = false;
+        if (message.MessageType == SaleConfirmationService.MessageTypeSaleConfirmation &&
+            message.ConfirmationStatus == "pending" &&
+            message.SaleId is not null &&
+            currentUser.UserId is not null)
+        {
+            canRespond = await db.SaleConfirmations.AnyAsync(
+                c => c.SaleId == message.SaleId &&
+                     c.BuyerId == currentUser.UserId &&
+                     c.Status == "pending",
+                ct);
+        }
+
+        return new MessageDto(
+            message.Id,
+            message.ChatId,
+            message.SenderId,
+            message.Content,
+            message.MessageType,
+            message.SaleId,
+            message.ConfirmationStatus,
+            message.SentAt,
+            FormatTimeLabel(message.SentAt),
+            canRespond);
+    }
+
+    private static string FormatTimeLabel(DateTime sentAt)
+    {
+        var delta = DateTime.UtcNow - sentAt;
+        if (delta.TotalMinutes < 1) return "Just now";
+        if (delta.TotalHours < 1) return $"{(int)delta.TotalMinutes}m";
+        if (delta.TotalDays < 1) return $"{(int)delta.TotalHours}h";
+        if (delta.TotalDays < 7) return $"{(int)delta.TotalDays}d";
+        return sentAt.ToString("MMM d");
     }
 }

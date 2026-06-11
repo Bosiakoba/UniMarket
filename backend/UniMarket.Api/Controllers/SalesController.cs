@@ -9,38 +9,56 @@ namespace UniMarket.Api.Controllers;
 
 [ApiController]
 [Route("api/sales")]
-public class SalesController(AppDbContext db, CurrentUserService currentUser) : ControllerBase
+public class SalesController(
+    AppDbContext db,
+    CurrentUserService currentUser,
+    SaleConfirmationService saleConfirmation) : ControllerBase
 {
-    [HttpPost("{saleId}/confirm")]
-    public async Task<ActionResult<SaleRecordDto>> Confirm(string saleId, CancellationToken ct)
+    [HttpPost("{saleId}/respond")]
+    public async Task<ActionResult<SaleRecordDto>> Respond(
+        string saleId,
+        [FromBody] SaleRespondRequest request,
+        CancellationToken ct)
     {
         if (!currentUser.IsAuthenticated) return Unauthorized();
 
+        var (success, error) = await saleConfirmation.RespondAsync(
+            saleId,
+            currentUser.UserId!,
+            request.Confirmed,
+            ct);
+
+        if (!success)
+        {
+            return BadRequest(new { message = error });
+        }
+
         var sale = await db.SaleRecords
             .Include(s => s.Listing)
-            .FirstOrDefaultAsync(s => s.Id == saleId, ct);
-
-        if (sale is null) return NotFound();
-        if (sale.BuyerId != currentUser.UserId) return Forbid();
-        if (sale.Status == "buyer_confirmed") return BadRequest("Already confirmed.");
-
-        sale.Status = "buyer_confirmed";
-        sale.ConfirmedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+            .FirstAsync(s => s.Id == saleId, ct);
 
         return Ok(ToDto(sale));
     }
+
+    [HttpPost("{saleId}/confirm")]
+    public Task<ActionResult<SaleRecordDto>> Confirm(string saleId, CancellationToken ct) =>
+        Respond(saleId, new SaleRespondRequest(true), ct);
 
     [HttpGet("pending")]
     public async Task<ActionResult<IEnumerable<SaleRecordDto>>> Pending(CancellationToken ct)
     {
         if (!currentUser.IsAuthenticated) return Unauthorized();
 
+        var buyerId = currentUser.UserId!;
+        var pendingSaleIds = await db.SaleConfirmations
+            .Where(c => c.BuyerId == buyerId && c.Status == "pending")
+            .Select(c => c.SaleId)
+            .Distinct()
+            .ToListAsync(ct);
+
         var sales = await db.SaleRecords
             .Include(s => s.Listing)
-            .Where(s =>
-                s.BuyerId == currentUser.UserId &&
-                s.Status == "seller_reported")
+            .Where(s => pendingSaleIds.Contains(s.Id))
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync(ct);
 

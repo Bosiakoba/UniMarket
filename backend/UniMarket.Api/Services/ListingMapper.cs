@@ -31,7 +31,7 @@ public class ListingMapper(AppDbContext db)
 
         if (photos.Count == 0)
         {
-            photos.Add("https://placehold.co/600x600?text=Listing");
+            photos.Add("https://placehold.co/600x600/png?text=Listing");
         }
 
         return new ListingDto(
