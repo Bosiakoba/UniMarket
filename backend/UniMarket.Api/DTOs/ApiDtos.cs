@@ -35,6 +35,9 @@ public record ListingDto(
     string? Condition,
     string? MeetupLocation,
     string Status,
+    string AvailabilityType,
+    int? QuantityAvailable,
+    int UnitsSold,
     IReadOnlyList<string> Tags,
     IReadOnlyDictionary<string, string> Attributes,
     double DistanceKm,
@@ -57,7 +60,23 @@ public record CreateListingRequest(
     IReadOnlyList<string> PhotoUrls,
     decimal? OriginalPrice,
     DateTime? DiscountEndsAt,
-    int? DiscountDurationDays);
+    int? DiscountDurationDays,
+    string AvailabilityType = "unique",
+    int? QuantityAvailable = null);
+
+public record RecordSaleRequest(int Units = 1, string? BuyerUserId = null);
+
+public record RestockRequest(int Quantity);
+
+public record SaleRecordDto(
+    string Id,
+    string ListingId,
+    string ListingTitle,
+    int Units,
+    string Status,
+    DateTime CreatedAt,
+    int? QuantityRemaining,
+    string ListingStatus);
 
 public record SellerApplicationRequest(string StoreName, string? IdDocumentUrl);
 

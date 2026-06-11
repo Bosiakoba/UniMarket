@@ -32,6 +32,9 @@ public class Listing
     public string? Condition { get; set; }
     public string? MeetupLocation { get; set; }
     public string Status { get; set; } = "active";
+    public string AvailabilityType { get; set; } = "unique";
+    public int? QuantityAvailable { get; set; }
+    public int UnitsSold { get; set; }
     public string TagsJson { get; set; } = "[]";
     public string AttributesJson { get; set; } = "{}";
     public double? Latitude { get; set; }
@@ -106,4 +109,17 @@ public class WishlistItem
     public string UserId { get; set; } = string.Empty;
     public string ListingId { get; set; } = string.Empty;
     public DateTime SavedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class SaleRecord
+{
+    public string Id { get; set; } = string.Empty;
+    public string ListingId { get; set; } = string.Empty;
+    public Listing? Listing { get; set; }
+    public string SellerId { get; set; } = string.Empty;
+    public string? BuyerId { get; set; }
+    public int Units { get; set; } = 1;
+    public string Status { get; set; } = "seller_reported";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? ConfirmedAt { get; set; }
 }

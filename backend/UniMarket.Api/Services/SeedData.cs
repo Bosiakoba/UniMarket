@@ -89,8 +89,25 @@ public static class SeedData
         hubDeal.OriginalPrice = 65;
         hubDeal.DiscountEndsAt = DateTime.UtcNow.AddDays(5);
         hubDeal.DiscountDurationDays = 7;
+        hubDeal.AvailabilityType = "stock";
+        hubDeal.QuantityAvailable = 10;
+        hubDeal.UnitsSold = 2;
 
-        db.Listings.AddRange(hubListing, textbook, hubDeal);
+        var designService = CreateListing(
+            "p3",
+            demoUser.Id,
+            "Logo design — campus clubs",
+            80,
+            "Services & Gigs",
+            0,
+            ["design", "logo", "freelance"],
+            new Dictionary<string, string>(),
+            "Like new",
+            "Main Campus");
+        designService.AvailabilityType = "ongoing";
+        designService.UnitsSold = 5;
+
+        db.Listings.AddRange(hubListing, textbook, hubDeal, designService);
 
         db.ListingReviews.AddRange(
             new ListingReview

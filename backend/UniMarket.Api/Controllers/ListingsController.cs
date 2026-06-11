@@ -102,6 +102,11 @@ public class ListingsController(
             Condition = request.Condition,
             MeetupLocation = request.MeetupLocation,
             Status = "active",
+            AvailabilityType = NormalizeAvailabilityType(request.AvailabilityType),
+            QuantityAvailable = ResolveQuantityAvailable(
+                request.AvailabilityType,
+                request.QuantityAvailable),
+            UnitsSold = 0,
             TagsJson = ListingMapper.SerializeTags(request.Tags),
             AttributesJson = ListingMapper.SerializeAttributes(request.Attributes),
             Owner = user,
@@ -148,6 +153,10 @@ public class ListingsController(
         listing.Category = request.Category;
         listing.Condition = request.Condition;
         listing.MeetupLocation = request.MeetupLocation;
+        listing.AvailabilityType = NormalizeAvailabilityType(request.AvailabilityType);
+        listing.QuantityAvailable = ResolveQuantityAvailable(
+            request.AvailabilityType,
+            request.QuantityAvailable);
         listing.TagsJson = ListingMapper.SerializeTags(request.Tags);
         listing.AttributesJson = ListingMapper.SerializeAttributes(request.Attributes);
 
@@ -182,19 +191,11 @@ public class ListingsController(
         return NoContent();
     }
 
-    [HttpPost("{id}/sold")]
-    public async Task<IActionResult> MarkSold(string id, CancellationToken ct)
-    {
-        return await SetStatus(id, "sold", ct);
-    }
-
-    [HttpPost("{id}/active")]
-    public async Task<IActionResult> MarkActive(string id, CancellationToken ct)
-    {
-        return await SetStatus(id, "active", ct);
-    }
-
-    private async Task<IActionResult> SetStatus(string id, string status, CancellationToken ct)
+    [HttpPost("{id}/sales")]
+    public async Task<ActionResult<SaleRecordDto>> RecordSale(
+        string id,
+        [FromBody] RecordSaleRequest request,
+        CancellationToken ct)
     {
         if (!currentUser.IsAuthenticated) return Unauthorized();
 
@@ -202,8 +203,164 @@ public class ListingsController(
         if (listing is null) return NotFound();
         if (listing.UserId != currentUser.UserId) return Forbid();
 
-        listing.Status = status;
+        var units = Math.Max(1, request.Units);
+        var availability = listing.AvailabilityType;
+
+        switch (availability)
+        {
+            case "ongoing":
+                listing.UnitsSold += units;
+                listing.Status = "active";
+                break;
+            case "stock":
+                if (listing.QuantityAvailable is null or <= 0)
+                {
+                    return BadRequest("Listing is sold out. Restock before recording another sale.");
+                }
+
+                if (units > listing.QuantityAvailable)
+                {
+                    return BadRequest(
+                        $"Only {listing.QuantityAvailable} unit(s) remain in stock.");
+                }
+
+                listing.QuantityAvailable -= units;
+                listing.UnitsSold += units;
+                if (listing.QuantityAvailable <= 0)
+                {
+                    listing.QuantityAvailable = 0;
+                    listing.Status = "sold_out";
+                }
+                else
+                {
+                    listing.Status = "active";
+                }
+                break;
+            default:
+                if (units != 1)
+                {
+                    return BadRequest("Unique listings can only record one sale at a time.");
+                }
+
+                listing.UnitsSold = 1;
+                listing.Status = "sold";
+                break;
+        }
+
+        var sale = new SaleRecord
+        {
+            Id = Guid.NewGuid().ToString("N")[..12],
+            ListingId = listing.Id,
+            SellerId = listing.UserId,
+            BuyerId = request.BuyerUserId,
+            Units = units,
+            Status = "seller_reported",
+            CreatedAt = DateTime.UtcNow,
+        };
+
+        db.SaleRecords.Add(sale);
         await db.SaveChangesAsync(ct);
-        return Ok(new { status });
+
+        return Ok(new SaleRecordDto(
+            sale.Id,
+            sale.ListingId,
+            listing.Title,
+            sale.Units,
+            sale.Status,
+            sale.CreatedAt,
+            listing.QuantityAvailable,
+            listing.Status));
+    }
+
+    [HttpPost("{id}/restock")]
+    public async Task<ActionResult<ListingDto>> Restock(
+        string id,
+        [FromBody] RestockRequest request,
+        CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return Unauthorized();
+
+        var listing = await db.Listings
+            .Include(l => l.Images)
+            .Include(l => l.Owner)
+            .FirstOrDefaultAsync(l => l.Id == id, ct);
+
+        if (listing is null) return NotFound();
+        if (listing.UserId != currentUser.UserId) return Forbid();
+        if (listing.AvailabilityType != "stock")
+        {
+            return BadRequest("Only stock listings can be restocked.");
+        }
+
+        var quantity = Math.Max(1, request.Quantity);
+        listing.QuantityAvailable = (listing.QuantityAvailable ?? 0) + quantity;
+        listing.Status = "active";
+        await db.SaveChangesAsync(ct);
+
+        return Ok(await mapper.ToDtoAsync(listing, ct));
+    }
+
+    [HttpPost("{id}/relist")]
+    public async Task<ActionResult<ListingDto>> Relist(string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return Unauthorized();
+
+        var listing = await db.Listings
+            .Include(l => l.Images)
+            .Include(l => l.Owner)
+            .FirstOrDefaultAsync(l => l.Id == id, ct);
+
+        if (listing is null) return NotFound();
+        if (listing.UserId != currentUser.UserId) return Forbid();
+        if (listing.AvailabilityType != "unique")
+        {
+            return BadRequest("Only unique listings can be relisted this way.");
+        }
+
+        listing.Status = "active";
+        listing.UnitsSold = 0;
+        await db.SaveChangesAsync(ct);
+        return Ok(await mapper.ToDtoAsync(listing, ct));
+    }
+
+    [HttpPost("{id}/sold")]
+    public async Task<ActionResult<SaleRecordDto>> MarkSold(string id, CancellationToken ct) =>
+        await RecordSale(id, new RecordSaleRequest(1), ct);
+
+    [HttpPost("{id}/active")]
+    public async Task<IActionResult> MarkActive(string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return Unauthorized();
+
+        var listing = await db.Listings
+            .Include(l => l.Images)
+            .Include(l => l.Owner)
+            .FirstOrDefaultAsync(l => l.Id == id, ct);
+
+        if (listing is null) return NotFound();
+        if (listing.UserId != currentUser.UserId) return Forbid();
+
+        listing.Status = "active";
+        if (listing.AvailabilityType == "unique")
+        {
+            listing.UnitsSold = 0;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Ok(await mapper.ToDtoAsync(listing, ct));
+    }
+
+    private static string NormalizeAvailabilityType(string? value) =>
+        value switch
+        {
+            "stock" => "stock",
+            "ongoing" => "ongoing",
+            _ => "unique",
+        };
+
+    private static int? ResolveQuantityAvailable(string? availabilityType, int? quantity)
+    {
+        if (availabilityType != "stock") return null;
+        return Math.Max(2, quantity ?? 2);
     }
 }
