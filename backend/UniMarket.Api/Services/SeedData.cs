@@ -43,7 +43,8 @@ public static class SeedData
             },
         };
 
-        db.Users.AddRange(demoUser, sellers);
+        db.Users.Add(demoUser);
+        db.Users.AddRange(sellers);
 
         var hubListing = CreateListing(
             "l-macbook",

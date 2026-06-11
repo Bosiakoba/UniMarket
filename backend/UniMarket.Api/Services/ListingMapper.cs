@@ -85,6 +85,6 @@ public class ListingMapper(AppDbContext db)
     public static string SerializeTags(IEnumerable<string> tags) =>
         JsonSerializer.Serialize(tags, JsonOptions);
 
-    public static string SerializeAttributes(IDictionary<string, string> attributes) =>
+    public static string SerializeAttributes(IReadOnlyDictionary<string, string> attributes) =>
         JsonSerializer.Serialize(attributes, JsonOptions);
 }
