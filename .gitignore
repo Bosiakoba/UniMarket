@@ -43,3 +43,22 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets & credentials — NEVER commit to GitHub
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase-service-account*.json
+**/serviceAccount*.json
+**/credentials.json
+**/secrets.json
+**/appsettings.*.local.json
+**/local.properties
+**/key.properties
