@@ -1,9 +1,18 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using UniMarket.Api.Configuration;
 using UniMarket.Api.Data;
 using UniMarket.Api.Middleware;
 using UniMarket.Api.Services;
 
+EnvFileLoader.LoadFromContentRoot(Directory.GetCurrentDirectory());
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<FirebaseSettings>(
+    builder.Configuration.GetSection(FirebaseSettings.SectionName));
+builder.Services.Configure<CloudflareSettings>(
+    builder.Configuration.GetSection(CloudflareSettings.SectionName));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -44,6 +53,31 @@ app.UseSwaggerUI();
 app.UseCors();
 app.UseMiddleware<DevAuthMiddleware>();
 app.MapControllers();
-app.MapGet("/health", () => Results.Ok(new { status = "ok", time = DateTime.UtcNow }));
+app.MapGet("/health", (
+    IOptions<FirebaseSettings> firebase,
+    IOptions<CloudflareSettings> cloudflare) =>
+{
+    var fb = firebase.Value;
+    var cf = cloudflare.Value;
+    return Results.Ok(new
+    {
+        status = "ok",
+        time = DateTime.UtcNow,
+        integrations = new
+        {
+            firebase = new
+            {
+                enabled = fb.Enabled,
+                configured = fb.IsConfigured,
+                projectId = string.IsNullOrWhiteSpace(fb.ProjectId) ? null : fb.ProjectId,
+            },
+            cloudflare = new
+            {
+                d1 = new { enabled = cf.D1Enabled, configured = cf.IsD1Configured },
+                r2 = new { enabled = cf.R2Enabled, configured = cf.IsR2Configured },
+            },
+        },
+    });
+});
 
 app.Run();

@@ -29,8 +29,43 @@ X-Dev-User-Id: alex-demo
 
 Or call `POST /api/auth/session` with body `{ "devUserId": "alex-demo" }` to bootstrap a user.
 
-**Never commit real Firebase service accounts or Cloudflare keys.** Use environment variables (see `.env.example`).
+## Environment variables (Firebase + Cloudflare)
+
+**Never commit real keys.** Local secrets live in `backend/UniMarket.Api/.env` (gitignored).
+
+1. Copy the template:
+
+```bash
+cp backend/UniMarket.Api/.env.example backend/UniMarket.Api/.env
+```
+
+2. Fill in your values. ASP.NET maps double-underscore env vars to config sections:
+
+| `.env` key | Purpose |
+|------------|---------|
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to Firebase service account JSON (gitignored) |
+| `Firebase__ProjectId` | Firebase project ID |
+| `Firebase__Enabled` | `true` when ready to verify ID tokens |
+| `Cloudflare__AccountId` | Cloudflare account ID |
+| `Cloudflare__D1DatabaseId` | D1 database UUID |
+| `Cloudflare__D1ApiToken` | API token with D1 read/write |
+| `Cloudflare__D1Enabled` | `true` when D1 is wired |
+| `Cloudflare__R2AccessKeyId` | R2 access key |
+| `Cloudflare__R2SecretAccessKey` | R2 secret |
+| `Cloudflare__R2BucketName` | R2 bucket (default `unimarket-assets`) |
+| `Cloudflare__R2Endpoint` | `https://<account_id>.r2.cloudflarestorage.com` |
+| `Cloudflare__R2Enabled` | `true` when R2 is wired |
+
+3. Start the API — `.env` is loaded automatically from the project folder.
+
+4. Check readiness (no secrets returned):
+
+```http
+GET /health
+```
+
+Response includes `integrations.firebase.configured` and `integrations.cloudflare.d1|r2.configured`.
 
 ## Railway (later)
 
-Set `ASPNETCORE_URLS=http://0.0.0.0:8080` and Railway secrets for Firebase / D1 / R2 when ready.
+Set `ASPNETCORE_URLS=http://0.0.0.0:8080` and Railway secrets using the same `Firebase__*` / `Cloudflare__*` keys from `.env.example`.
