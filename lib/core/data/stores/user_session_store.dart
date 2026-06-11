@@ -300,6 +300,11 @@ class UserSessionStore extends ChangeNotifier {
     }
   }
 
+  void setCurrentUser(AppUser user) {
+    currentUser = user;
+    notifyListeners();
+  }
+
   void updateProfile({
     String? fullName,
     String? university,

@@ -9,6 +9,8 @@ class AppUser {
     this.avatarUrl,
     this.interestCategories = const {},
     this.profileComplete = false,
+    this.sellerApplicationStatus = 'none',
+    this.verificationBadgeStatus = 'none',
     this.createdAt,
     this.firebaseUid,
     this.isSeller = false,
@@ -24,6 +26,8 @@ class AppUser {
   final String? avatarUrl;
   final Set<String> interestCategories;
   final bool profileComplete;
+  final String sellerApplicationStatus;
+  final String verificationBadgeStatus;
   final DateTime? createdAt;
   /// Placeholder until Firebase Auth is wired.
   final String? firebaseUid;
@@ -41,6 +45,8 @@ class AppUser {
     String? avatarUrl,
     Set<String>? interestCategories,
     bool? profileComplete,
+    String? sellerApplicationStatus,
+    String? verificationBadgeStatus,
     bool? isSeller,
     bool? isVerified,
   }) {
@@ -54,6 +60,10 @@ class AppUser {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       interestCategories: interestCategories ?? this.interestCategories,
       profileComplete: profileComplete ?? this.profileComplete,
+      sellerApplicationStatus:
+          sellerApplicationStatus ?? this.sellerApplicationStatus,
+      verificationBadgeStatus:
+          verificationBadgeStatus ?? this.verificationBadgeStatus,
       createdAt: createdAt,
       firebaseUid: firebaseUid,
       isSeller: isSeller ?? this.isSeller,

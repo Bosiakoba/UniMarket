@@ -563,6 +563,10 @@ abstract final class ListingMapper {
       avatarUrl: json['avatarUrl'] as String?,
       interestCategories: categories,
       profileComplete: json['profileComplete'] as bool? ?? false,
+      sellerApplicationStatus:
+          json['sellerApplicationStatus'] as String? ?? 'none',
+      verificationBadgeStatus:
+          json['verificationBadgeStatus'] as String? ?? 'none',
       firebaseUid: json['firebaseUid'] as String?,
       isSeller: json['isSeller'] as bool? ?? false,
       isVerified: json['isVerified'] as bool? ?? false,

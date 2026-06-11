@@ -301,10 +301,7 @@ class SellerStore extends ChangeNotifier {
 
     try {
       final user = await client.applyVerifyBadge();
-      verificationStatus = user.isVerified
-          ? VerificationStatus.verified
-          : VerificationStatus.pending;
-      _refreshListingVerificationFlags();
+      applyUserProfile(user);
       notifyListeners();
       return null;
     } catch (error) {
@@ -841,19 +838,65 @@ class SellerStore extends ChangeNotifier {
   }
 
   void applyUserProfile(AppUser user) {
-    if (user.isSeller) {
+    sellerApplicationStatus = _mapSellerApplicationStatus(
+      user.sellerApplicationStatus,
+      user.isSeller,
+    );
+    verificationStatus = _mapVerificationStatus(
+      user.verificationBadgeStatus,
+      user.isVerified,
+    );
+
+    if (sellerApplicationStatus == SellerApplicationStatus.approved ||
+        sellerApplicationStatus == SellerApplicationStatus.pending ||
+        sellerApplicationStatus == SellerApplicationStatus.rejected) {
       sellerApplication = SellerApplication(
         fullName: user.fullName,
         studentEmail: user.email,
         storeName: user.fullName,
         studentIdUploaded: true,
-        appliedAt: DateTime.now().subtract(const Duration(days: 21)),
+        appliedAt: sellerApplication?.appliedAt ?? DateTime.now(),
       );
-      sellerApplicationStatus = SellerApplicationStatus.approved;
+    } else if (sellerApplicationStatus == SellerApplicationStatus.none) {
+      sellerApplication = null;
     }
-    verificationStatus = user.isVerified
-        ? VerificationStatus.verified
-        : VerificationStatus.none;
+
+    if (verificationStatus == VerificationStatus.verified) {
+      _refreshListingVerificationFlags();
+    }
+  }
+
+  SellerApplicationStatus _mapSellerApplicationStatus(
+    String status,
+    bool isSeller,
+  ) {
+    return switch (status) {
+      'pending' => SellerApplicationStatus.pending,
+      'rejected' => SellerApplicationStatus.rejected,
+      'approved' => SellerApplicationStatus.approved,
+      _ => isSeller ? SellerApplicationStatus.approved : SellerApplicationStatus.none,
+    };
+  }
+
+  VerificationStatus _mapVerificationStatus(String status, bool isVerified) {
+    return switch (status) {
+      'pending' => VerificationStatus.pending,
+      'rejected' => VerificationStatus.none,
+      'approved' => VerificationStatus.verified,
+      _ => isVerified ? VerificationStatus.verified : VerificationStatus.none,
+    };
+  }
+
+  Future<void> refreshApplicationStatus({
+    required ApiClient client,
+    required void Function(AppUser user) onUserUpdated,
+  }) async {
+    if (!isLiveSession(client)) return;
+
+    final user = await client.fetchMe();
+    onUserUpdated(user);
+    applyUserProfile(user);
+    notifyListeners();
   }
 
   void _upsertOwnedListing(ListingItem listing) {

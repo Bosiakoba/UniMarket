@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/seller_store_scope.dart';
 import '../../core/widgets/uni_button.dart';
+import '../../core/widgets/user_session_scope.dart';
 import 'post_listing_screen.dart';
 import 'seller_application_screen.dart';
 import 'widgets/seller_status_layout.dart';
 
-class SellerApplicationStatusScreen extends StatelessWidget {
+class SellerApplicationStatusScreen extends StatefulWidget {
   const SellerApplicationStatusScreen({
     super.key,
     this.continueToListing = false,
@@ -29,6 +33,39 @@ class SellerApplicationStatusScreen extends StatelessWidget {
   }
 
   @override
+  State<SellerApplicationStatusScreen> createState() =>
+      _SellerApplicationStatusScreenState();
+}
+
+class _SellerApplicationStatusScreenState
+    extends State<SellerApplicationStatusScreen> {
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _refresh());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    final session = UserSessionScope.of(context);
+    final store = SellerStoreScope.of(context);
+    final client = ApiClientScope.of(context);
+
+    await store.refreshApplicationStatus(
+      client: client,
+      onUserUpdated: session.setCurrentUser,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final store = SellerStoreScope.of(context);
 
@@ -36,7 +73,7 @@ class SellerApplicationStatusScreen extends StatelessWidget {
       listenable: store,
       builder: (context, _) {
         if (store.isSeller) {
-          return _ApprovedView(continueToListing: continueToListing);
+          return _ApprovedView(continueToListing: widget.continueToListing);
         }
 
         if (store.sellerApplicationRejected) {
@@ -86,12 +123,12 @@ class SellerApplicationStatusScreen extends StatelessWidget {
           badgeLabel: 'UNDER REVIEW',
           title: 'Seller checks in progress',
           subtitle:
-              'We are confirming your campus details and student ID. '
-              'You can post listings as soon as you are approved.',
+              'Campus admins are reviewing your student ID and store details. '
+              'This page updates automatically when you are approved.',
           bottom: UniButton(
-            label: 'Waiting for approval...',
+            label: 'Refresh status',
             variant: UniButtonVariant.secondary,
-            onPressed: null,
+            onPressed: _refresh,
           ),
           children: const [
             SellerStatusStepCard(
@@ -103,7 +140,7 @@ class SellerApplicationStatusScreen extends StatelessWidget {
                 ),
                 SellerStatusStep(
                   label: 'Campus identity review',
-                  detail: 'Usually takes a few minutes on campus market.',
+                  detail: 'An admin verifies your student ID and email.',
                   state: SellerStatusStepState.active,
                 ),
                 SellerStatusStep(
