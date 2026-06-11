@@ -60,9 +60,20 @@ app.*.map.json
 **/google-services.json
 **/GoogleService-Info.plist
 **/firebase-service-account*.json
+**/*firebase-adminsdk*.json
 **/serviceAccount*.json
 **/credentials.json
 **/secrets.json
 **/appsettings.*.local.json
 **/local.properties
 **/key.properties
+
+# Firebase / FlutterFire (generated locally — use *.example templates)
+lib/firebase_options.dart
+firebase.json
+.firebaserc
+firebase-debug.log
+firebase-debug.*.log
+!**/google-services.json.example
+!firebase.json.example
+!lib/firebase_options.example.dart
