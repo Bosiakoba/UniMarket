@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/app_notification.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/uni_button.dart';
 
 class NotificationDetailSheet extends StatelessWidget {
   const NotificationDetailSheet({super.key, required this.notification});
@@ -61,13 +62,19 @@ class NotificationDetailSheet extends StatelessWidget {
             style: AppTypography.body(color: AppColors.textPrimary),
           ),
           const SizedBox(height: 20),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Close',
-              style: AppTypography.bodyBold(color: AppColors.textPrimary),
+          if (notification.hasAction)
+            UniButton(
+              label: notification.actionLabel!,
+              onPressed: () => Navigator.of(context).pop(),
+            )
+          else
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Close',
+                style: AppTypography.bodyBold(color: AppColors.textPrimary),
+              ),
             ),
-          ),
         ],
       ),
     );

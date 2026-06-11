@@ -195,16 +195,9 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                           _OwnerStatusBanner(record: ownerRecord),
                           const SizedBox(height: 12),
                         ],
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: Image.asset(
-                              listing.imageAsset,
-                              fit: BoxFit.cover,
-                              cacheWidth: 600,
-                            ),
-                          ),
+                        _ListingPhotoCarousel(
+                          photos: ownerRecord?.allPhotoAssets ??
+                              [listing.imageAsset],
                         ),
                         const SizedBox(height: 18),
                         Text(listing.title, style: AppTypography.h2()),
@@ -654,6 +647,78 @@ class _SellerCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ListingPhotoCarousel extends StatefulWidget {
+  const _ListingPhotoCarousel({required this.photos});
+
+  final List<String> photos;
+
+  @override
+  State<_ListingPhotoCarousel> createState() => _ListingPhotoCarouselState();
+}
+
+class _ListingPhotoCarouselState extends State<_ListingPhotoCarousel> {
+  final _controller = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = widget.photos;
+
+    return Column(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: photos.length == 1
+                ? Image.asset(
+                    photos.first,
+                    fit: BoxFit.cover,
+                    cacheWidth: 600,
+                  )
+                : PageView.builder(
+                    controller: _controller,
+                    itemCount: photos.length,
+                    onPageChanged: (value) => setState(() => _index = value),
+                    itemBuilder: (context, index) => Image.asset(
+                      photos[index],
+                      fit: BoxFit.cover,
+                      cacheWidth: 600,
+                    ),
+                  ),
+          ),
+        ),
+        if (photos.length > 1) ...[
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(photos.length, (index) {
+              final active = index == _index;
+              return Container(
+                width: active ? 8 : 6,
+                height: active ? 8 : 6,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: active
+                      ? AppColors.forestGreen
+                      : AppColors.border,
+                  shape: BoxShape.circle,
+                ),
+              );
+            }),
+          ),
+        ],
+      ],
     );
   }
 }

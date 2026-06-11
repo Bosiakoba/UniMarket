@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-import '../../../core/data/mock/mock_profile.dart';
-import '../../../core/data/mock/mock_reviews.dart';
 import '../../../core/models/listing_item.dart';
-import '../../../core/models/listing_review.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/rating_row.dart';
+import '../../../core/widgets/review_store_scope.dart';
+import '../../../core/widgets/user_session_scope.dart';
 import '../widgets/review_tile.dart';
 import '../widgets/write_review_form.dart';
 
@@ -21,26 +20,13 @@ class ListingReviewsScreen extends StatefulWidget {
 }
 
 class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
-  late List<ListingReview> _reviews;
   final _reviewController = TextEditingController();
   int _userRating = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _reviews = List.of(MockReviews.forListing(widget.listing.id));
-  }
 
   @override
   void dispose() {
     _reviewController.dispose();
     super.dispose();
-  }
-
-  double get _averageRating {
-    if (_reviews.isEmpty) return 0;
-    final total = _reviews.fold<double>(0, (sum, r) => sum + r.rating);
-    return total / _reviews.length;
   }
 
   void _postReview() {
@@ -54,17 +40,17 @@ class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
       return;
     }
 
+    final session = UserSessionScope.of(context);
+    final author = session.currentUser?.fullName ?? 'Campus buyer';
+
+    ReviewStoreScope.of(context).addReview(
+      listingId: widget.listing.canonicalId,
+      authorName: author,
+      rating: _userRating.toDouble(),
+      body: body,
+    );
+
     setState(() {
-      _reviews.insert(
-        0,
-        ListingReview(
-          id: 'user-${DateTime.now().millisecondsSinceEpoch}',
-          authorName: MockProfile.name,
-          rating: _userRating.toDouble(),
-          body: body,
-          dateLabel: 'Just now',
-        ),
-      );
       _userRating = 0;
       _reviewController.clear();
     });
@@ -81,96 +67,61 @@ class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final listing = widget.listing;
-    final bottom = MediaQuery.paddingOf(context).bottom;
+    final reviewStore = ReviewStoreScope.of(context);
+    final listingId = widget.listing.canonicalId;
 
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(LucideIcons.arrowLeft),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Reviews',
-                      textAlign: TextAlign.center,
-                      style: AppTypography.h3(),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
+    return ListenableBuilder(
+      listenable: reviewStore,
+      builder: (context, _) {
+        final reviews = reviewStore.forListing(listingId);
+        final average = reviewStore.averageRating(listingId);
+        final count = reviewStore.reviewCount(listingId);
+        final displayRating = count > 0 ? average : widget.listing.rating;
+        final displayCount = count > 0 ? count : widget.listing.reviewCount;
+
+        return Scaffold(
+          backgroundColor: AppColors.white,
+          appBar: AppBar(
+            backgroundColor: AppColors.white,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(LucideIcons.arrowLeft),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    listing.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.bodyBold(),
-                  ),
-                  const SizedBox(height: 10),
-                  RatingRow(
-                    rating: _averageRating,
-                    reviewCount: _reviews.length,
-                  ),
-                ],
+            title: Text('Reviews', style: AppTypography.h3()),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            children: [
+              Text(widget.listing.title, style: AppTypography.bodyBold()),
+              const SizedBox(height: 8),
+              RatingRow(rating: displayRating, reviewCount: displayCount),
+              const SizedBox(height: 20),
+              WriteReviewForm(
+                rating: _userRating,
+                controller: _reviewController,
+                onRatingChanged: (value) => setState(() => _userRating = value),
+                onSubmit: _postReview,
               ),
-            ),
-            const Divider(height: 1, color: AppColors.border),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, bottom + 16),
-                children: [
-                  WriteReviewForm(
-                    rating: _userRating,
-                    controller: _reviewController,
-                    onRatingChanged: (value) =>
-                        setState(() => _userRating = value),
-                    onSubmit: _postReview,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'All reviews (${_reviews.length})',
-                    style: AppTypography.bodyBold(),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_reviews.isEmpty)
-                    Text(
-                      'No reviews yet. Be the first to review.',
-                      style: AppTypography.body(
-                        color: AppColors.textSecondary,
-                      ),
-                    )
-                  else
-                    ..._reviews.map(
-                      (review) => Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: ReviewTile(
-                          review: review,
-                          showDivider: false,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+              const SizedBox(height: 24),
+              if (reviews.isEmpty)
+                Text(
+                  'No reviews yet. Be the first to share your experience.',
+                  style: AppTypography.body(color: AppColors.textSecondary),
+                )
+              else
+                ...reviews.asMap().entries.map((entry) {
+                  final review = entry.value;
+                  return ReviewTile(
+                    review: review,
+                    showDivider: entry.key < reviews.length - 1,
+                  );
+                }),
+            ],
+          ),
+        );
+      },
     );
   }
 }

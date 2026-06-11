@@ -14,6 +14,17 @@ import '../shell/widgets/category_chip_row.dart';
 import '../shell/widgets/vault_feed_layout.dart';
 import '../shell/widgets/vault_search_bar.dart';
 
+enum SearchSortMode {
+  relevance('Best match'),
+  verifiedFirst('Verified first'),
+  nearest('Nearest'),
+  priceLow('Price: low to high'),
+  priceHigh('Price: high to low');
+
+  const SearchSortMode(this.label);
+  final String label;
+}
+
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -24,6 +35,7 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   String _query = '';
   String _selectedCategory = 'All';
+  SearchSortMode _sort = SearchSortMode.relevance;
 
   static const _recentSearches = [
     'MacBook',
@@ -35,7 +47,7 @@ class _SearchScreenState extends State<SearchScreen> {
   List<ListingItem> _results(List<ListingItem> source) {
     if (_query.trim().length < 2) return [];
     final q = _query.toLowerCase();
-    return source.where((item) {
+    final filtered = source.where((item) {
       final matchesCategory =
           _selectedCategory == 'All' || item.category == _selectedCategory;
       if (!matchesCategory) return false;
@@ -46,6 +58,30 @@ class _SearchScreenState extends State<SearchScreen> {
           item.attributes.values
               .any((value) => value.toLowerCase().contains(q));
     }).toList();
+
+    filtered.sort((a, b) {
+      switch (_sort) {
+        case SearchSortMode.verifiedFirst:
+          final verified = b.isVerified == a.isVerified
+              ? 0
+              : (b.isVerified ? 1 : -1);
+          if (verified != 0) return verified;
+          return a.distanceKm.compareTo(b.distanceKm);
+        case SearchSortMode.nearest:
+          return a.distanceKm.compareTo(b.distanceKm);
+        case SearchSortMode.priceLow:
+          return a.price.compareTo(b.price);
+        case SearchSortMode.priceHigh:
+          return b.price.compareTo(a.price);
+        case SearchSortMode.relevance:
+          final aVerified = a.isVerified ? 1 : 0;
+          final bVerified = b.isVerified ? 1 : 0;
+          if (bVerified != aVerified) return bVerified - aVerified;
+          return a.distanceKm.compareTo(b.distanceKm);
+      }
+    });
+
+    return filtered;
   }
 
   @override
@@ -59,83 +95,116 @@ class _SearchScreenState extends State<SearchScreen> {
         final results = _results(sellerStore.allListings);
 
         return VaultFeedLayout(
-      showTopBar: false,
-      headline: 'Search',
-      stickyContent: Column(
-        children: [
-          VaultSearchBar(
-            hint: 'Search by item, category, seller...',
-            autofocus: false,
-            onChanged: (value) => setState(() => _query = value),
-          ),
-          if (hasQuery)
-            CategoryChipRow(
-              categories: MockListings.categories,
-              selected: _selectedCategory,
-              onSelected: (cat) => setState(() => _selectedCategory = cat),
-            ),
-        ],
-      ),
-      body: !hasQuery
-          ? ListView(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                0,
-                20,
-                floatingChromeBottomInset(context),
+          showTopBar: false,
+          headline: 'Search',
+          stickyContent: Column(
+            children: [
+              VaultSearchBar(
+                hint: 'Search by item, category, seller...',
+                autofocus: false,
+                onChanged: (value) => setState(() => _query = value),
               ),
-              children: [
-                Text(
-                  'Recent searches',
-                  style: AppTypography.bodyBold(),
+              if (hasQuery) ...[
+                CategoryChipRow(
+                  categories: MockListings.categories,
+                  selected: _selectedCategory,
+                  onSelected: (cat) => setState(() => _selectedCategory = cat),
                 ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _recentSearches.map((term) {
-                    return ActionChip(
-                      label: Text(term, style: AppTypography.caption()),
-                      backgroundColor: AppColors.surfaceMuted,
-                      side: BorderSide.none,
-                      onPressed: () => setState(() => _query = term),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 28),
-                Text('Browse by category', style: AppTypography.bodyBold()),
-                const SizedBox(height: 12),
-                ...MockListings.categories.where((c) => c != 'All').map(
-                  (cat) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CategoryIcon(category: cat, size: 36),
-                    title: Text(cat, style: AppTypography.body()),
-                    trailing: const Icon(LucideIcons.chevronRight, size: 16),
-                    onTap: () => ListingGridScreen.openCategory(context, cat),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: PopupMenuButton<SearchSortMode>(
+                    initialValue: _sort,
+                    onSelected: (value) => setState(() => _sort = value),
+                    itemBuilder: (context) => SearchSortMode.values
+                        .map(
+                          (mode) => PopupMenuItem(
+                            value: mode,
+                            child: Text(mode.label),
+                          ),
+                        )
+                        .toList(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(LucideIcons.arrowUpDown, size: 14),
+                          const SizedBox(width: 6),
+                          Text(
+                            _sort.label,
+                            style: AppTypography.caption(
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
-            )
-          : results.isEmpty
-              ? Center(
-                  child: Text(
-                    'No results for "$_query"',
-                    style: AppTypography.body(color: AppColors.textSecondary),
-                  ),
-                )
-              : GridView.builder(
+            ],
+          ),
+          body: !hasQuery
+              ? ListView(
                   padding: EdgeInsets.fromLTRB(
                     20,
                     0,
                     20,
                     floatingChromeBottomInset(context),
                   ),
-                  physics: const BouncingScrollPhysics(),
-                  gridDelegate: ListingGrid.gridDelegate,
-                  itemCount: results.length,
-                  itemBuilder: (context, index) =>
-                      ListingCard(listing: results[index]),
-                ),
+                  children: [
+                    Text('Recent searches', style: AppTypography.bodyBold()),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _recentSearches.map((term) {
+                        return ActionChip(
+                          label: Text(term, style: AppTypography.caption()),
+                          backgroundColor: AppColors.surfaceMuted,
+                          side: BorderSide.none,
+                          onPressed: () => setState(() => _query = term),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 28),
+                    Text('Browse by category', style: AppTypography.bodyBold()),
+                    const SizedBox(height: 12),
+                    ...MockListings.categories.where((c) => c != 'All').map(
+                      (cat) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CategoryIcon(category: cat, size: 36),
+                        title: Text(cat, style: AppTypography.body()),
+                        trailing:
+                            const Icon(LucideIcons.chevronRight, size: 16),
+                        onTap: () =>
+                            ListingGridScreen.openCategory(context, cat),
+                      ),
+                    ),
+                  ],
+                )
+              : results.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No results for "$_query"',
+                        style:
+                            AppTypography.body(color: AppColors.textSecondary),
+                      ),
+                    )
+                  : GridView.builder(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        0,
+                        20,
+                        floatingChromeBottomInset(context),
+                      ),
+                      physics: const BouncingScrollPhysics(),
+                      gridDelegate: ListingGrid.gridDelegate,
+                      itemCount: results.length,
+                      itemBuilder: (context, index) =>
+                          ListingCard(listing: results[index]),
+                    ),
         );
       },
     );

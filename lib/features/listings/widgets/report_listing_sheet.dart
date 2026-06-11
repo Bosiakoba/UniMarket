@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/models/listing_item.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/report_store_scope.dart';
 import '../../../core/widgets/uni_button.dart';
 
 class ReportListingSheet extends StatefulWidget {
@@ -45,6 +46,12 @@ class _ReportListingSheetState extends State<ReportListingSheet> {
       );
       return;
     }
+
+    ReportStoreScope.of(context).submit(
+      listingId: widget.listing.canonicalId,
+      listingTitle: widget.listing.title,
+      reason: _selected!,
+    );
 
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
