@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/models/listing_item.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/api_client_scope.dart';
 import '../../../core/widgets/report_store_scope.dart';
 import '../../../core/widgets/uni_button.dart';
 
@@ -51,6 +52,7 @@ class _ReportListingSheetState extends State<ReportListingSheet> {
       listingId: widget.listing.canonicalId,
       listingTitle: widget.listing.title,
       reason: _selected!,
+      client: ApiClientScope.of(context),
     );
 
     Navigator.of(context).pop();

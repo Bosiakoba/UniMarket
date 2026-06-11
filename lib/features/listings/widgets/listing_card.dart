@@ -5,6 +5,8 @@ import '../../../core/models/listing_item.dart';
 import '../../../core/navigation/listing_navigation.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/api_client_scope.dart';
+import '../../../core/widgets/listing_image.dart';
 import '../../../core/widgets/seller_store_scope.dart';
 import '../../../core/widgets/wishlist_store_scope.dart';
 import 'listing_price_text.dart';
@@ -45,13 +47,11 @@ class ListingCard extends StatelessWidget {
                 child: Stack(
                   children: [
                     Positioned.fill(
-                      child: ClipRRect(
+                      child: ListingImage(
+                        source: listing.imageAsset,
+                        fit: BoxFit.cover,
+                        cacheWidth: 280,
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.asset(
-                          listing.imageAsset,
-                          fit: BoxFit.cover,
-                          cacheWidth: 280,
-                        ),
                       ),
                     ),
                     if (listing.hasActiveDiscount)
@@ -64,7 +64,10 @@ class ListingCard extends StatelessWidget {
                       top: 6,
                       right: 6,
                       child: GestureDetector(
-                        onTap: () => wishlist.toggle(listingId),
+                        onTap: () => wishlist.toggle(
+                          listingId,
+                          client: ApiClientScope.of(context),
+                        ),
                         child: Container(
                           width: 28,
                           height: 28,

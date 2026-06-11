@@ -10,6 +10,8 @@ class AppUser {
     this.interestCategories = const {},
     this.createdAt,
     this.firebaseUid,
+    this.isSeller = false,
+    this.isVerified = false,
   });
 
   final String id;
@@ -23,6 +25,8 @@ class AppUser {
   final DateTime? createdAt;
   /// Placeholder until Firebase Auth is wired.
   final String? firebaseUid;
+  final bool isSeller;
+  final bool isVerified;
 
   String get displayInitial =>
       fullName.isNotEmpty ? fullName[0].toUpperCase() : '?';
@@ -34,6 +38,8 @@ class AppUser {
     String? phone,
     String? avatarUrl,
     Set<String>? interestCategories,
+    bool? isSeller,
+    bool? isVerified,
   }) {
     return AppUser(
       id: id,
@@ -46,6 +52,8 @@ class AppUser {
       interestCategories: interestCategories ?? this.interestCategories,
       createdAt: createdAt,
       firebaseUid: firebaseUid,
+      isSeller: isSeller ?? this.isSeller,
+      isVerified: isVerified ?? this.isVerified,
     );
   }
 }

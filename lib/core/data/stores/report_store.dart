@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../api/api_client.dart';
 import '../../models/listing_report.dart';
 
 class ReportStore extends ChangeNotifier {
@@ -7,12 +8,23 @@ class ReportStore extends ChangeNotifier {
 
   List<ListingReport> get reports => List.unmodifiable(_reports);
 
-  void submit({
+  Future<void> submit({
     required String listingId,
     required String listingTitle,
     required String reason,
     String? comment,
-  }) {
+    ApiClient? client,
+  }) async {
+    if (client != null) {
+      try {
+        await client.reportListing(
+          listingId: listingId,
+          reason: reason,
+          comment: comment,
+        );
+      } catch (_) {}
+    }
+
     _reports.insert(
       0,
       ListingReport(

@@ -5,6 +5,7 @@ import '../../core/models/listing_item.dart';
 import '../../core/navigation/listing_navigation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/listing_image.dart';
 import '../../core/widgets/seller_store_scope.dart';
 import '../../core/widgets/user_session_scope.dart';
 import '../../core/widgets/verified_badge.dart';
@@ -359,8 +360,8 @@ class _RecentListingRow extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                listing.imageAsset,
+              child: ListingImage(
+                source: listing.imageAsset,
                 width: 52,
                 height: 52,
                 fit: BoxFit.cover,

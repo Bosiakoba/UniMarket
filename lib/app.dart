@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'core/api/api_client.dart';
+import 'core/config/api_config.dart';
 import 'core/data/stores/app_preferences_store.dart';
 import 'core/data/stores/message_store.dart';
 import 'core/data/stores/notification_store.dart';
@@ -9,6 +11,7 @@ import 'core/data/stores/seller_store.dart';
 import 'core/data/stores/user_session_store.dart';
 import 'core/data/stores/wishlist_store.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/api_client_scope.dart';
 import 'core/widgets/app_preferences_scope.dart';
 import 'core/widgets/message_store_scope.dart';
 import 'core/widgets/notification_store_scope.dart';
@@ -39,6 +42,7 @@ class UniMarketApp extends StatefulWidget {
 }
 
 class _UniMarketAppState extends State<UniMarketApp> {
+  final _apiClient = ApiClient(baseUrl: ApiConfig.baseUrl);
   final _preferences = AppPreferencesStore();
   final _session = UserSessionStore();
   final _sellerStore = SellerStore();
@@ -48,65 +52,68 @@ class _UniMarketAppState extends State<UniMarketApp> {
   final _reviewStore = ReviewStore();
   final _reportStore = ReportStore();
 
-  void bootstrapDemoSellerIfNeeded() {
-    if (_session.isDemoAccount) {
-      final user = _session.currentUser!;
-      _sellerStore.loadDemoSellerState(
-        displayName: user.fullName,
-        email: user.email,
-      );
-      _messageStore.resetToSeed();
-    }
+  Future<void> bootstrapAfterSignIn() async {
+    final user = _session.currentUser;
+    if (user == null) return;
+
+    _apiClient.devUserId = user.id;
+    await _sellerStore.syncFromApi(_apiClient, user: user);
+    await _wishlistStore.syncFromApi(_apiClient);
+    _messageStore.resetToSeed();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AppPreferencesScope(
-      store: _preferences,
-      child: UserSessionScope(
-        store: _session,
-        child: SellerStoreScope(
-          store: _sellerStore,
-          child: MessageStoreScope(
-            store: _messageStore,
-            child: WishlistStoreScope(
-              store: _wishlistStore,
-              child: NotificationStoreScope(
-                store: _notificationStore,
-                child: ReviewStoreScope(
-                  store: _reviewStore,
-                  child: ReportStoreScope(
-                    store: _reportStore,
-                    child: MaterialApp(
-                      title: 'Uni Market',
-                      debugShowCheckedModeBanner: false,
-                      theme: AppTheme.light,
-                      builder: (context, child) => MobileViewport(
-                        child: child ?? const SizedBox.shrink(),
+    return ApiClientScope(
+      client: _apiClient,
+      child: AppPreferencesScope(
+        store: _preferences,
+        child: UserSessionScope(
+          store: _session,
+          child: SellerStoreScope(
+            store: _sellerStore,
+            child: MessageStoreScope(
+              store: _messageStore,
+              child: WishlistStoreScope(
+                store: _wishlistStore,
+                child: NotificationStoreScope(
+                  store: _notificationStore,
+                  child: ReviewStoreScope(
+                    store: _reviewStore,
+                    child: ReportStoreScope(
+                      store: _reportStore,
+                      child: MaterialApp(
+                        title: 'Uni Market',
+                        debugShowCheckedModeBanner: false,
+                        theme: AppTheme.light,
+                        builder: (context, child) => MobileViewport(
+                          child: child ?? const SizedBox.shrink(),
+                        ),
+                        initialRoute: AppRoutes.splash,
+                        routes: {
+                          AppRoutes.splash: (_) => SplashScreen(
+                                onBootstrap: bootstrapAfterSignIn,
+                              ),
+                          AppRoutes.onboarding: (_) =>
+                              const OnboardingScreen(),
+                          AppRoutes.signIn: (_) => SignInScreen(
+                                onSignedIn: bootstrapAfterSignIn,
+                              ),
+                          AppRoutes.signUp: (_) => const SignUpScreen(),
+                          AppRoutes.forgotPassword: (_) =>
+                              const ForgotPasswordScreen(),
+                          AppRoutes.verification: (_) =>
+                              const VerificationScreen(),
+                          AppRoutes.profileCompletion: (_) =>
+                              const ProfileCompletionScreen(),
+                          AppRoutes.categorySelection: (_) =>
+                              const CategorySelectionScreen(),
+                          AppRoutes.home: (_) => const MainShell(),
+                          AppRoutes.messages: (_) => const MessagesScreen(),
+                          AppRoutes.notifications: (_) =>
+                              const NotificationsScreen(),
+                        },
                       ),
-                      initialRoute: AppRoutes.splash,
-                      routes: {
-                        AppRoutes.splash: (_) => SplashScreen(
-                              onBootstrapDemo: bootstrapDemoSellerIfNeeded,
-                            ),
-                        AppRoutes.onboarding: (_) => const OnboardingScreen(),
-                        AppRoutes.signIn: (_) => SignInScreen(
-                              onSignedIn: bootstrapDemoSellerIfNeeded,
-                            ),
-                        AppRoutes.signUp: (_) => const SignUpScreen(),
-                        AppRoutes.forgotPassword: (_) =>
-                            const ForgotPasswordScreen(),
-                        AppRoutes.verification: (_) =>
-                            const VerificationScreen(),
-                        AppRoutes.profileCompletion: (_) =>
-                            const ProfileCompletionScreen(),
-                        AppRoutes.categorySelection: (_) =>
-                            const CategorySelectionScreen(),
-                        AppRoutes.home: (_) => const MainShell(),
-                        AppRoutes.messages: (_) => const MessagesScreen(),
-                        AppRoutes.notifications: (_) =>
-                            const NotificationsScreen(),
-                      },
                     ),
                   ),
                 ),

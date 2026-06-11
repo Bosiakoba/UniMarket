@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 
+import '../../api/api_client.dart';
 import '../../models/app_user.dart';
 
 class UserSessionStore extends ChangeNotifier {
   AppUser? currentUser;
+  bool isSigningIn = false;
+  String? lastAuthError;
 
   bool get isLoggedIn => currentUser != null;
 
@@ -12,15 +15,45 @@ class UserSessionStore extends ChangeNotifier {
   bool get isDemoAccount =>
       currentUser?.email.toLowerCase() == demoEmail.toLowerCase();
 
-  String? signIn({required String email, required String password}) {
-    final trimmedEmail = email.trim().toLowerCase();
-    if (trimmedEmail.isEmpty) return 'Enter your university email.';
-    if (!_isCampusEmail(trimmedEmail)) {
-      return 'Use your campus email address.';
-    }
-    if (password.trim().isEmpty) return 'Enter your password.';
+  String devUserIdForEmail(String email) {
+    final normalized = email.trim().toLowerCase();
+    if (normalized == demoEmail) return 'alex-demo';
+    return 'user-${normalized.hashCode.abs()}';
+  }
 
-    currentUser = _userFromEmail(trimmedEmail, isNew: false);
+  Future<String?> signInWithApi({
+    required ApiClient client,
+    required String email,
+    required String password,
+  }) async {
+    final validationError = _validateCredentials(email, password);
+    if (validationError != null) return validationError;
+
+    isSigningIn = true;
+    lastAuthError = null;
+    notifyListeners();
+
+    try {
+      final devUserId = devUserIdForEmail(email);
+      final profile = await client.bootstrapSession(devUserId: devUserId);
+      currentUser = ListingMapper.userFromJson(profile);
+      return null;
+    } catch (error) {
+      lastAuthError = error.toString();
+      currentUser = _userFromEmail(email.trim().toLowerCase(), isNew: false);
+      client.devUserId = currentUser!.id;
+      return null;
+    } finally {
+      isSigningIn = false;
+      notifyListeners();
+    }
+  }
+
+  String? signIn({required String email, required String password}) {
+    final validationError = _validateCredentials(email, password);
+    if (validationError != null) return validationError;
+
+    currentUser = _userFromEmail(email.trim().toLowerCase(), isNew: false);
     notifyListeners();
     return null;
   }
@@ -84,7 +117,18 @@ class UserSessionStore extends ChangeNotifier {
 
   void signOut() {
     currentUser = null;
+    lastAuthError = null;
     notifyListeners();
+  }
+
+  String? _validateCredentials(String email, String password) {
+    final trimmedEmail = email.trim().toLowerCase();
+    if (trimmedEmail.isEmpty) return 'Enter your university email.';
+    if (!_isCampusEmail(trimmedEmail)) {
+      return 'Use your campus email address.';
+    }
+    if (password.trim().isEmpty) return 'Enter your password.';
+    return null;
   }
 
   bool _isCampusEmail(String email) {
@@ -100,13 +144,14 @@ class UserSessionStore extends ChangeNotifier {
         .join(' ');
 
     return AppUser(
-      id: 'user-${email.hashCode.abs()}',
+      id: devUserIdForEmail(email),
       email: email,
       fullName: fullName.isEmpty ? 'Campus User' : fullName,
       university: 'State University',
       campus: 'Main Campus',
       createdAt: DateTime.now(),
       firebaseUid: null,
+      isSeller: email == demoEmail,
     );
   }
 }

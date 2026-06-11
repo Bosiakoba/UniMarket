@@ -8,9 +8,9 @@ import '../../core/widgets/user_session_scope.dart';
 import '../../routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key, this.onBootstrapDemo});
+  const SplashScreen({super.key, this.onBootstrap});
 
-  final VoidCallback? onBootstrapDemo;
+  final Future<void> Function()? onBootstrap;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -42,14 +42,15 @@ class _SplashScreenState extends State<SplashScreen>
     Future.delayed(const Duration(milliseconds: 2400), _goNext);
   }
 
-  void _goNext() {
+  Future<void> _goNext() async {
     if (!mounted) return;
 
     final preferences = AppPreferencesScope.of(context);
     final session = UserSessionScope.of(context);
 
     if (session.isLoggedIn) {
-      widget.onBootstrapDemo?.call();
+      await widget.onBootstrap?.call();
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed(AppRoutes.home);
       return;
     }

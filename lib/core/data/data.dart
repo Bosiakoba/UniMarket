@@ -1,6 +1,8 @@
 /// Data layer barrel — mock sources, stores, services, repositories.
 library;
 
+export '../api/api_client.dart';
+export '../config/api_config.dart';
 export 'mock/mock_listings.dart';
 export 'mock/mock_profile.dart';
 export 'mock/mock_reviews.dart';

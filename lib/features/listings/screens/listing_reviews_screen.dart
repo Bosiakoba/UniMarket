@@ -5,6 +5,7 @@ import '../../../core/models/listing_item.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/rating_row.dart';
+import '../../../core/widgets/api_client_scope.dart';
 import '../../../core/widgets/review_store_scope.dart';
 import '../../../core/widgets/user_session_scope.dart';
 import '../widgets/review_tile.dart';
@@ -22,6 +23,17 @@ class ListingReviewsScreen extends StatefulWidget {
 class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
   final _reviewController = TextEditingController();
   int _userRating = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ReviewStoreScope.of(context).loadFromApi(
+        ApiClientScope.of(context),
+        widget.listing.canonicalId,
+      );
+    });
+  }
 
   @override
   void dispose() {
@@ -48,6 +60,7 @@ class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
       authorName: author,
       rating: _userRating.toDouble(),
       body: body,
+      client: ApiClientScope.of(context),
     );
 
     setState(() {
