@@ -157,4 +157,60 @@ class MessageStore extends ChangeNotifier {
     );
     notifyListeners();
   }
+
+  void resetToSeed() {
+    _threads.clear();
+    _threads.addAll([
+      MessageThread(
+        id: 'thread-jordan',
+        sellerName: 'Jordan K.',
+        unread: true,
+        attachedListing: MockListings.items.first,
+        messages: [
+          const ChatMessage(
+            id: 'm1',
+            text: 'Is the MacBook still available?',
+            isMine: true,
+            timeLabel: '2m',
+          ),
+          const ChatMessage(
+            id: 'm2',
+            text: 'Yes! Can meet at the library today.',
+            isMine: false,
+            timeLabel: '1m',
+          ),
+        ],
+      ),
+      MessageThread(
+        id: 'thread-campus-books',
+        sellerName: 'Campus Books',
+        messages: [
+          const ChatMessage(
+            id: 'm3',
+            text: 'Thanks for your order!',
+            isMine: false,
+            timeLabel: '1h',
+          ),
+        ],
+      ),
+      MessageThread(
+        id: 'thread-sam',
+        sellerName: 'Sam R.',
+        messages: [
+          const ChatMessage(
+            id: 'm4',
+            text: 'Can we meet at the library?',
+            isMine: false,
+            timeLabel: 'Yesterday',
+          ),
+        ],
+      ),
+    ]);
+    notifyListeners();
+  }
+
+  void clearAll() {
+    _threads.clear();
+    notifyListeners();
+  }
 }

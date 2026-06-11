@@ -1,3 +1,12 @@
+enum NotificationType {
+  verification,
+  listing,
+  message,
+  wishlist,
+  sellerApplication,
+  system,
+}
+
 class AppNotification {
   const AppNotification({
     required this.id,
@@ -6,6 +15,9 @@ class AppNotification {
     required this.timeLabel,
     required this.section,
     this.isRead = false,
+    this.type = NotificationType.system,
+    this.targetId,
+    this.actionLabel,
   });
 
   final String id;
@@ -14,6 +26,11 @@ class AppNotification {
   final String timeLabel;
   final String section;
   final bool isRead;
+  final NotificationType type;
+  final String? targetId;
+  final String? actionLabel;
+
+  bool get hasAction => targetId != null && actionLabel != null;
 
   AppNotification copyWith({bool? isRead}) {
     return AppNotification(
@@ -23,6 +40,9 @@ class AppNotification {
       timeLabel: timeLabel,
       section: section,
       isRead: isRead ?? this.isRead,
+      type: type,
+      targetId: targetId,
+      actionLabel: actionLabel,
     );
   }
 }

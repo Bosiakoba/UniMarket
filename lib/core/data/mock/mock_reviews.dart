@@ -1,6 +1,8 @@
 import '../../models/listing_review.dart';
 
 abstract final class MockReviews {
+  static const seededListingIds = ['p1', 'p2', 'l1', 'l2'];
+
   static const _defaultReviews = [
     ListingReview(
       id: 'r1',

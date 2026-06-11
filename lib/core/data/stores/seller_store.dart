@@ -12,18 +12,7 @@ import '../mock/mock_listings.dart';
 import '../mock/mock_profile.dart';
 
 class SellerStore extends ChangeNotifier {
-  SellerStore() {
-    _records.addAll(_seedRecords);
-    sellerApplication = SellerApplication(
-      fullName: MockProfile.name,
-      studentEmail: MockProfile.email,
-      storeName: MockProfile.name,
-      studentIdUploaded: true,
-      appliedAt: DateTime.now().subtract(const Duration(days: 21)),
-    );
-    sellerApplicationStatus = SellerApplicationStatus.approved;
-    verificationStatus = VerificationStatus.none;
-  }
+  SellerStore();
 
   static final _seedRecords = [
     SellerListingRecord(
@@ -425,6 +414,30 @@ class SellerStore extends ChangeNotifier {
     final index = _records.indexWhere((r) => r.listing.id == listingId);
     if (index == -1) return;
     _records[index] = transform(_records[index]);
+    notifyListeners();
+  }
+
+  void loadDemoSellerState({String? displayName, String? email}) {
+    _records
+      ..clear()
+      ..addAll(_seedRecords);
+    sellerApplication = SellerApplication(
+      fullName: displayName ?? MockProfile.name,
+      studentEmail: email ?? MockProfile.email,
+      storeName: displayName ?? MockProfile.name,
+      studentIdUploaded: true,
+      appliedAt: DateTime.now().subtract(const Duration(days: 21)),
+    );
+    sellerApplicationStatus = SellerApplicationStatus.approved;
+    verificationStatus = VerificationStatus.none;
+    notifyListeners();
+  }
+
+  void resetForSignOut() {
+    _records.clear();
+    sellerApplication = null;
+    sellerApplicationStatus = SellerApplicationStatus.none;
+    verificationStatus = VerificationStatus.none;
     notifyListeners();
   }
 }
