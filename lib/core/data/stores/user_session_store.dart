@@ -11,6 +11,7 @@ class UserSessionStore extends ChangeNotifier {
   bool get isLoggedIn => currentUser != null;
 
   static const demoEmail = 'alex.morgan@university.edu';
+  static const jordanDemoEmail = 'jordan@university.edu';
 
   bool get isDemoAccount =>
       currentUser?.email.toLowerCase() == demoEmail.toLowerCase();
@@ -18,6 +19,7 @@ class UserSessionStore extends ChangeNotifier {
   String devUserIdForEmail(String email) {
     final normalized = email.trim().toLowerCase();
     if (normalized == demoEmail) return 'alex-demo';
+    if (normalized == jordanDemoEmail) return 'seller-jordan';
     return 'user-${normalized.hashCode.abs()}';
   }
 
