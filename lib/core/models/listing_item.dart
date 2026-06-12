@@ -7,6 +7,7 @@ class ListingItem {
     required this.price,
     required this.imageAsset,
     required this.sellerName,
+    this.sellerUserId = '',
     required this.isVerified,
     required this.distanceKm,
     required this.category,
@@ -32,6 +33,7 @@ class ListingItem {
   final String imageAsset;
   final List<String> photoUrls;
   final String sellerName;
+  final String sellerUserId;
   final bool isVerified;
   final double distanceKm;
   final String category;
@@ -133,6 +135,7 @@ class ListingItem {
     String? imageAsset,
     List<String>? photoUrls,
     String? sellerName,
+    String? sellerUserId,
     bool? isVerified,
     double? distanceKm,
     String? category,
@@ -161,6 +164,7 @@ class ListingItem {
       imageAsset: imageAsset ?? this.imageAsset,
       photoUrls: photoUrls ?? this.photoUrls,
       sellerName: sellerName ?? this.sellerName,
+      sellerUserId: sellerUserId ?? this.sellerUserId,
       isVerified: isVerified ?? this.isVerified,
       distanceKm: distanceKm ?? this.distanceKm,
       category: category ?? this.category,

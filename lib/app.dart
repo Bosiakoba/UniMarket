@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'core/api/api_client.dart';
+import 'core/models/app_user.dart';
 import 'core/config/api_config.dart';
 import 'core/services/firebase_auth_service.dart';
+import 'core/services/push_notification_service.dart';
 import 'core/data/stores/app_preferences_store.dart';
 import 'core/data/stores/message_store.dart';
 import 'core/data/stores/notification_store.dart';
@@ -61,9 +63,25 @@ class _UniMarketAppState extends State<UniMarketApp> {
     _apiClient.idToken = token;
     _apiClient.devUserId = token == null ? user.id : null;
 
-    await _sellerStore.syncFromApi(_apiClient, user: user);
+    _reviewStore.clear(reseedOfflineMocks: false);
+    _reportStore.clear();
+
+    AppUser activeUser = user;
+    if (token != null) {
+      try {
+        activeUser = await _apiClient.fetchMe();
+        _session.setCurrentUser(activeUser);
+      } catch (_) {}
+    }
+
+    await _sellerStore.syncFromApi(_apiClient, user: activeUser);
     await _wishlistStore.syncFromApi(_apiClient);
-    await _messageStore.syncFromApi(_apiClient, userId: user.id);
+    await _messageStore.syncFromApi(_apiClient, userId: activeUser.id);
+    await _notificationStore.syncFromApi(_apiClient);
+    await PushNotificationService.registerDevice(
+      client: _apiClient,
+      notificationStore: _notificationStore,
+    );
   }
 
   @override
@@ -95,22 +113,18 @@ class _UniMarketAppState extends State<UniMarketApp> {
                         ),
                         initialRoute: AppRoutes.splash,
                         routes: {
-                          AppRoutes.splash: (_) => SplashScreen(
-                                onBootstrap: bootstrapAfterSignIn,
-                              ),
-                          AppRoutes.onboarding: (_) =>
-                              const OnboardingScreen(),
-                          AppRoutes.signIn: (_) => SignInScreen(
-                                onSignedIn: bootstrapAfterSignIn,
-                              ),
-                          AppRoutes.signUp: (_) => SignUpScreen(
-                                onSignedIn: bootstrapAfterSignIn,
-                              ),
+                          AppRoutes.splash: (_) =>
+                              SplashScreen(onBootstrap: bootstrapAfterSignIn),
+                          AppRoutes.onboarding: (_) => const OnboardingScreen(),
+                          AppRoutes.signIn: (_) =>
+                              SignInScreen(onSignedIn: bootstrapAfterSignIn),
+                          AppRoutes.signUp: (_) =>
+                              SignUpScreen(onSignedIn: bootstrapAfterSignIn),
                           AppRoutes.forgotPassword: (_) =>
                               const ForgotPasswordScreen(),
                           AppRoutes.verification: (_) => VerificationScreen(
-                                onReadyForHome: bootstrapAfterSignIn,
-                              ),
+                            onReadyForHome: bootstrapAfterSignIn,
+                          ),
                           AppRoutes.profileCompletion: (_) =>
                               const ProfileCompletionScreen(),
                           AppRoutes.categorySelection: (_) =>

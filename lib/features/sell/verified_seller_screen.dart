@@ -7,6 +7,7 @@ import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/seller_store_scope.dart';
 import '../../core/widgets/uni_button.dart';
 import '../../core/widgets/verified_badge.dart';
+import 'sell_entry.dart';
 import 'widgets/seller_status_layout.dart';
 
 class VerifiedSellerScreen extends StatelessWidget {
@@ -19,6 +20,24 @@ class VerifiedSellerScreen extends StatelessWidget {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
+        if (!store.isSeller) {
+          return SellerStatusLayout(
+            tone: SellerStatusTone.neutral,
+            heroIcon: LucideIcons.store,
+            badgeLabel: 'SELLER FIRST',
+            title: 'Apply to sell first',
+            subtitle:
+                'Complete your seller application before you can request '
+                'the verified badge.',
+            bottom: UniButton(
+              label: 'Apply to sell',
+              variant: UniButtonVariant.green,
+              onPressed: () => SellEntry.openSellerApplication(context),
+            ),
+            children: const [],
+          );
+        }
+
         if (store.isVerified) {
           return _VerifiedSuccessView(storeName: store.storeName);
         }

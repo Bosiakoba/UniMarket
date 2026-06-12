@@ -60,7 +60,7 @@ class MessageStore extends ChangeNotifier {
       }
     }
 
-    final existing = _threadForSeller(sellerName);
+    final existing = listing == null ? _threadForSeller(sellerName) : null;
     if (existing != null) {
       if (listing != null) {
         existing.attachedListing = listing;

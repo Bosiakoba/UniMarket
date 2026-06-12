@@ -4,20 +4,42 @@ import '../../core/models/app_notification.dart';
 import '../../core/navigation/notification_navigation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/notification_store_scope.dart';
 import 'widgets/notification_detail_sheet.dart';
 import 'widgets/notification_tile.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationStoreScope.of(
+        context,
+      ).syncFromApi(ApiClientScope.of(context));
+    });
+  }
 
   Future<void> _openNotification(
     BuildContext context,
     AppNotification notification,
   ) async {
-    NotificationStoreScope.of(context).markRead(notification.id);
+    final store = NotificationStoreScope.of(context);
+    final client = ApiClientScope.of(context);
+    await store.markReadRemote(notification.id, client: client);
+    if (!context.mounted) return;
+
     await NotificationDetailSheet.show(context, notification);
-    if (notification.hasAction && context.mounted) {
+    if (!context.mounted) return;
+
+    if (notification.hasAction) {
       NotificationNavigation.open(context, notification);
     }
   }
@@ -52,7 +74,9 @@ class NotificationsScreen extends StatelessWidget {
             actions: [
               if (unreadCount > 0)
                 TextButton(
-                  onPressed: store.markAllRead,
+                  onPressed: () => store.markAllReadRemote(
+                    client: ApiClientScope.of(context),
+                  ),
                   child: Text(
                     'Mark all read',
                     style: AppTypography.caption(color: AppColors.textPrimary),
@@ -66,8 +90,9 @@ class NotificationsScreen extends StatelessWidget {
               for (final section in sections) ...[
                 NotificationSectionHeader(label: section),
                 ...items.where((n) => n.section == section).map((notification) {
-                  final sectionItems =
-                      items.where((n) => n.section == section).toList();
+                  final sectionItems = items
+                      .where((n) => n.section == section)
+                      .toList();
                   final isLast = sectionItems.last.id == notification.id;
 
                   return Column(

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../constants/app_assets.dart';
 import '../models/app_user.dart';
+import '../models/app_notification.dart';
 import '../models/chat_message.dart';
 import '../models/listing_availability.dart';
 import '../models/listing_item.dart';
@@ -29,19 +30,17 @@ class ApiClient {
   String? idToken;
 
   Map<String, String> get _headers => {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        if (idToken != null) 'Authorization': 'Bearer $idToken',
-        if (idToken == null && devUserId != null)
-          'X-Dev-User-Id': devUserId!,
-      };
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    if (idToken != null) 'Authorization': 'Bearer $idToken',
+    if (idToken == null && devUserId != null) 'X-Dev-User-Id': devUserId!,
+  };
 
   Map<String, String> get _authHeaders => {
-        'Accept': 'application/json',
-        if (idToken != null) 'Authorization': 'Bearer $idToken',
-        if (idToken == null && devUserId != null)
-          'X-Dev-User-Id': devUserId!,
-      };
+    'Accept': 'application/json',
+    if (idToken != null) 'Authorization': 'Bearer $idToken',
+    if (idToken == null && devUserId != null) 'X-Dev-User-Id': devUserId!,
+  };
 
   Uri _uri(String path, [Map<String, String>? query]) =>
       Uri.parse('$baseUrl$path').replace(queryParameters: query);
@@ -90,7 +89,10 @@ class ApiClient {
         'interestCategories': ?interestCategories,
       }),
     );
-    final json = _decodeObject(response, errorLabel: 'Could not update profile');
+    final json = _decodeObject(
+      response,
+      errorLabel: 'Could not update profile',
+    );
     return ListingMapper.userFromJson(json);
   }
 
@@ -114,7 +116,7 @@ class ApiClient {
     );
     if (response.statusCode >= 400) {
       throw ApiException(
-        'Seller application failed',
+        _errorMessage(response, fallback: 'Seller application failed'),
         statusCode: response.statusCode,
       );
     }
@@ -126,13 +128,13 @@ class ApiClient {
       headers: _headers,
     );
     if (response.statusCode >= 400) {
-      final decoded = response.body.isNotEmpty
-          ? jsonDecode(response.body)
-          : null;
-      final message = decoded is Map && decoded['message'] is String
-          ? decoded['message'] as String
-          : 'Could not apply for verification badge';
-      throw ApiException(message, statusCode: response.statusCode);
+      throw ApiException(
+        _errorMessage(
+          response,
+          fallback: 'Could not apply for verification badge',
+        ),
+        statusCode: response.statusCode,
+      );
     }
     return fetchMe();
   }
@@ -143,12 +145,18 @@ class ApiClient {
       headers: _headers,
     );
     if (response.statusCode >= 400) {
-      throw ApiException('Could not delete listing', statusCode: response.statusCode);
+      throw ApiException(
+        'Could not delete listing',
+        statusCode: response.statusCode,
+      );
     }
   }
 
   Future<List<Map<String, dynamic>>> fetchMyReports() async {
-    final response = await http.get(_uri('/api/reports/mine'), headers: _headers);
+    final response = await http.get(
+      _uri('/api/reports/mine'),
+      headers: _headers,
+    );
     final list = _decodeList(response, errorLabel: 'Could not load reports');
     return list.cast<Map<String, dynamic>>();
   }
@@ -167,6 +175,27 @@ class ApiClient {
     final url = json['url'] as String?;
     if (url == null || url.isEmpty) {
       throw ApiException('Photo upload failed: missing URL');
+    }
+    return url;
+  }
+
+  Future<String> uploadSellerDocument(String filePath) async {
+    final request = http.MultipartRequest(
+      'POST',
+      _uri('/api/uploads/seller-documents'),
+    );
+    request.headers.addAll(_authHeaders);
+    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    final json = _decodeObject(
+      response,
+      errorLabel: 'Student ID upload failed',
+    );
+    final url = json['url'] as String?;
+    if (url == null || url.isEmpty) {
+      throw ApiException('Student ID upload failed: missing URL');
     }
     return url;
   }
@@ -207,7 +236,10 @@ class ApiClient {
         'quantityAvailable': quantityAvailable,
       }),
     );
-    final json = _decodeObject(response, errorLabel: 'Could not publish listing');
+    final json = _decodeObject(
+      response,
+      errorLabel: 'Could not publish listing',
+    );
     return ListingMapper.fromJson(json);
   }
 
@@ -248,11 +280,17 @@ class ApiClient {
         'quantityAvailable': quantityAvailable,
       }),
     );
-    final json = _decodeObject(response, errorLabel: 'Could not update listing');
+    final json = _decodeObject(
+      response,
+      errorLabel: 'Could not update listing',
+    );
     return ListingMapper.fromJson(json);
   }
 
-  Future<List<ListingItem>> fetchListings({String? query, String sort = 'verified'}) async {
+  Future<List<ListingItem>> fetchListings({
+    String? query,
+    String sort = 'verified',
+  }) async {
     final response = await http.get(
       _uri('/api/listings', {
         if (query != null && query.isNotEmpty) 'q': query,
@@ -280,7 +318,10 @@ class ApiClient {
       headers: _headers,
     );
     if (response.statusCode >= 400) {
-      throw ApiException('Could not save listing', statusCode: response.statusCode);
+      throw ApiException(
+        'Could not save listing',
+        statusCode: response.statusCode,
+      );
     }
   }
 
@@ -290,7 +331,10 @@ class ApiClient {
       headers: _headers,
     );
     if (response.statusCode >= 400 && response.statusCode != 404) {
-      throw ApiException('Could not remove listing', statusCode: response.statusCode);
+      throw ApiException(
+        'Could not remove listing',
+        statusCode: response.statusCode,
+      );
     }
   }
 
@@ -301,7 +345,9 @@ class ApiClient {
     );
     final list = _decodeList(response, errorLabel: 'Reviews failed');
     return list
-        .map((item) => ListingMapper.reviewFromJson(item as Map<String, dynamic>))
+        .map(
+          (item) => ListingMapper.reviewFromJson(item as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -343,19 +389,20 @@ class ApiClient {
     final response = await http.post(
       _uri('/api/listings/$listingId/sales'),
       headers: _headers,
-      body: jsonEncode({
-        'units': units,
-        'buyerUserId': ?buyerUserId,
-      }),
+      body: jsonEncode({'units': units, 'buyerUserId': ?buyerUserId}),
     );
-    final saleJson =
-        _decodeObject(response, errorLabel: 'Could not record sale');
+    final saleJson = _decodeObject(
+      response,
+      errorLabel: 'Could not record sale',
+    );
     final listingResponse = await http.get(
       _uri('/api/listings/$listingId'),
       headers: _headers,
     );
-    final listingJson =
-        _decodeObject(listingResponse, errorLabel: 'Could not refresh listing');
+    final listingJson = _decodeObject(
+      listingResponse,
+      errorLabel: 'Could not refresh listing',
+    );
     return RecordSaleResult(
       saleId: saleJson['id'] as String,
       listing: ListingMapper.fromJson(listingJson),
@@ -378,8 +425,10 @@ class ApiClient {
   }
 
   Future<List<Map<String, dynamic>>> fetchChatMessages(String chatId) async {
-    final response =
-        await http.get(_uri('/api/chats/$chatId/messages'), headers: _headers);
+    final response = await http.get(
+      _uri('/api/chats/$chatId/messages'),
+      headers: _headers,
+    );
     final list = _decodeList(response, errorLabel: 'Could not load messages');
     return list.cast<Map<String, dynamic>>();
   }
@@ -394,7 +443,10 @@ class ApiClient {
       body: jsonEncode({'confirmed': confirmed}),
     );
     if (response.statusCode >= 400) {
-      throw ApiException('Could not respond to sale', statusCode: response.statusCode);
+      throw ApiException(
+        'Could not respond to sale',
+        statusCode: response.statusCode,
+      );
     }
   }
 
@@ -412,7 +464,70 @@ class ApiClient {
       body: jsonEncode({'content': content}),
     );
     if (response.statusCode >= 400) {
-      throw ApiException('Could not send message', statusCode: response.statusCode);
+      throw ApiException(
+        'Could not send message',
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  Future<List<AppNotification>> fetchNotifications() async {
+    final response = await http.get(
+      _uri('/api/notifications'),
+      headers: _headers,
+    );
+    final list = _decodeList(
+      response,
+      errorLabel: 'Could not load notifications',
+    );
+    return list
+        .map(
+          (item) =>
+              ListingMapper.notificationFromJson(item as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    final response = await http.post(
+      _uri('/api/notifications/$id/read'),
+      headers: _headers,
+    );
+    if (response.statusCode >= 400) {
+      throw ApiException(
+        'Could not update notification',
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    final response = await http.post(
+      _uri('/api/notifications/read-all'),
+      headers: _headers,
+    );
+    if (response.statusCode >= 400) {
+      throw ApiException(
+        'Could not update notifications',
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  Future<void> registerFcmToken({
+    required String token,
+    required String platform,
+  }) async {
+    final response = await http.post(
+      _uri('/api/notifications/fcm-token'),
+      headers: _headers,
+      body: jsonEncode({'token': token, 'platform': platform}),
+    );
+    if (response.statusCode >= 400) {
+      throw ApiException(
+        'Could not register notifications',
+        statusCode: response.statusCode,
+      );
     }
   }
 
@@ -425,7 +540,10 @@ class ApiClient {
       headers: _headers,
       body: jsonEncode({'quantity': quantity}),
     );
-    final json = _decodeObject(response, errorLabel: 'Could not restock listing');
+    final json = _decodeObject(
+      response,
+      errorLabel: 'Could not restock listing',
+    );
     return ListingMapper.fromJson(json);
   }
 
@@ -434,7 +552,10 @@ class ApiClient {
       _uri('/api/listings/$listingId/relist'),
       headers: _headers,
     );
-    final json = _decodeObject(response, errorLabel: 'Could not relist listing');
+    final json = _decodeObject(
+      response,
+      errorLabel: 'Could not relist listing',
+    );
     return ListingMapper.fromJson(json);
   }
 
@@ -456,7 +577,8 @@ class ApiClient {
     return ChatMessage(
       id: json['id'] as String,
       text: json['content'] as String? ?? '',
-      isMine: !isSystem &&
+      isMine:
+          !isSystem &&
           senderId == currentUserId &&
           kind == ChatMessageKind.text,
       timeLabel: json['timeLabel'] as String? ?? 'Recently',
@@ -467,7 +589,10 @@ class ApiClient {
     );
   }
 
-  List<dynamic> _decodeList(http.Response response, {required String errorLabel}) {
+  List<dynamic> _decodeList(
+    http.Response response, {
+    required String errorLabel,
+  }) {
     if (response.statusCode >= 400) {
       throw ApiException(errorLabel, statusCode: response.statusCode);
     }
@@ -483,7 +608,10 @@ class ApiClient {
     required String errorLabel,
   }) {
     if (response.statusCode >= 400) {
-      throw ApiException(errorLabel, statusCode: response.statusCode);
+      throw ApiException(
+        _errorMessage(response, fallback: errorLabel),
+        statusCode: response.statusCode,
+      );
     }
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) {
@@ -491,11 +619,26 @@ class ApiClient {
     }
     return decoded;
   }
+
+  String _errorMessage(http.Response response, {required String fallback}) {
+    if (response.body.isEmpty) return fallback;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map && decoded['message'] is String) {
+        return decoded['message'] as String;
+      }
+      if (decoded is String && decoded.isNotEmpty) return decoded;
+    } catch (_) {
+      if (response.body.isNotEmpty) return response.body;
+    }
+    return fallback;
+  }
 }
 
 abstract final class ListingMapper {
   static ListingItem fromJson(Map<String, dynamic> json) {
-    final photos = (json['photoUrls'] as List<dynamic>?)
+    final photos =
+        (json['photoUrls'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
         const <String>[];
@@ -508,18 +651,19 @@ abstract final class ListingMapper {
       imageAsset: image,
       photoUrls: photos,
       sellerName: json['sellerName'] as String? ?? 'Campus seller',
+      sellerUserId: json['sellerUserId'] as String? ?? '',
       isVerified: json['isVerified'] as bool? ?? false,
       distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0,
       category: json['category'] as String? ?? 'Other',
-      tags: (json['tags'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
+      tags:
+          (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           const [],
-      attributes: (json['attributes'] as Map<String, dynamic>?)?.map(
+      attributes:
+          (json['attributes'] as Map<String, dynamic>?)?.map(
             (key, value) => MapEntry(key, value.toString()),
           ) ??
           const {},
-      rating: (json['rating'] as num?)?.toDouble() ?? 4.8,
+      rating: (json['rating'] as num?)?.toDouble() ?? 0,
       reviewCount: json['reviewCount'] as int? ?? 0,
       originalPrice: (json['originalPrice'] as num?)?.toDouble(),
       discountEndsAt: json['discountEndsAt'] != null
@@ -548,7 +692,8 @@ abstract final class ListingMapper {
   }
 
   static AppUser userFromJson(Map<String, dynamic> json) {
-    final categories = (json['interestCategories'] as List<dynamic>?)
+    final categories =
+        (json['interestCategories'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toSet() ??
         const <String>{};
@@ -567,6 +712,7 @@ abstract final class ListingMapper {
           json['sellerApplicationStatus'] as String? ?? 'none',
       verificationBadgeStatus:
           json['verificationBadgeStatus'] as String? ?? 'none',
+      storeName: json['storeName'] as String?,
       firebaseUid: json['firebaseUid'] as String?,
       isSeller: json['isSeller'] as bool? ?? false,
       isVerified: json['isVerified'] as bool? ?? false,
@@ -574,5 +720,47 @@ abstract final class ListingMapper {
           ? DateTime.tryParse(json['createdAt'] as String)
           : null,
     );
+  }
+
+  static AppNotification notificationFromJson(Map<String, dynamic> json) {
+    final type = switch (json['type'] as String? ?? 'system') {
+      'verification' => NotificationType.verification,
+      'listing' => NotificationType.listing,
+      'message' => NotificationType.message,
+      'wishlist' => NotificationType.wishlist,
+      'sellerApplication' => NotificationType.sellerApplication,
+      _ => NotificationType.system,
+    };
+
+    return AppNotification(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? 'UniMarket',
+      body: json['body'] as String? ?? '',
+      timeLabel: json['timeLabel'] as String? ?? 'Recently',
+      section: _notificationSection(json['createdAt'] as String?),
+      isRead: json['isRead'] as bool? ?? false,
+      type: type,
+      targetId: json['targetId'] as String?,
+      actionLabel: json['actionLabel'] as String?,
+    );
+  }
+
+  static String _notificationSection(String? createdAt) {
+    final parsed = createdAt == null ? null : DateTime.tryParse(createdAt);
+    if (parsed == null) return 'Earlier';
+    final now = DateTime.now();
+    final local = parsed.toLocal();
+    if (local.year == now.year &&
+        local.month == now.month &&
+        local.day == now.day) {
+      return 'Today';
+    }
+    final yesterday = now.subtract(const Duration(days: 1));
+    if (local.year == yesterday.year &&
+        local.month == yesterday.month &&
+        local.day == yesterday.day) {
+      return 'Yesterday';
+    }
+    return 'Earlier';
   }
 }

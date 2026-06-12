@@ -5,7 +5,13 @@ class FirebaseAuthService {
 
   static FirebaseAuth get _auth => FirebaseAuth.instance;
 
-  static User? get currentUser => _auth.currentUser;
+  static User? get currentUser {
+    try {
+      return _auth.currentUser;
+    } on FirebaseException {
+      return null;
+    }
+  }
 
   static Future<UserCredential> signInWithEmailPassword({
     required String email,
@@ -28,7 +34,7 @@ class FirebaseAuthService {
   }
 
   static Future<String?> getIdToken({bool forceRefresh = false}) async {
-    final user = _auth.currentUser;
+    final user = currentUser;
     if (user == null) return null;
     return user.getIdToken(forceRefresh);
   }
@@ -45,22 +51,28 @@ class FirebaseAuthService {
   }
 
   static Future<void> sendEmailVerification() async {
-    final user = _auth.currentUser;
+    final user = currentUser;
     if (user != null && !user.emailVerified) {
       await user.sendEmailVerification();
     }
   }
 
   static Future<bool> reloadEmailVerified() async {
-    final user = _auth.currentUser;
+    final user = currentUser;
     if (user == null) return false;
     await user.reload();
-    return _auth.currentUser?.emailVerified ?? false;
+    return currentUser?.emailVerified ?? false;
   }
 
-  static bool get emailVerified => _auth.currentUser?.emailVerified ?? false;
+  static bool get emailVerified => currentUser?.emailVerified ?? false;
 
-  static Future<void> signOut() => _auth.signOut();
+  static Future<void> signOut() async {
+    try {
+      await _auth.signOut();
+    } on FirebaseException {
+      return;
+    }
+  }
 
   static String? mapAuthError(FirebaseAuthException error) {
     switch (error.code) {

@@ -32,7 +32,11 @@ class ProfileScreen extends StatelessWidget {
         final sellerPending = sellerStore.sellerApplicationPending;
         final isVerified = sellerStore.isVerified;
         final listingCount = sellerStore.activeCount;
-        final displayName = user?.fullName ??
+        final ratingLabel = sellerStore.sellerReviewCount == 0
+            ? '-'
+            : sellerStore.sellerRating.toStringAsFixed(1);
+        final displayName =
+            user?.fullName ??
             sellerStore.sellerApplication?.fullName ??
             'Guest';
         final storeLabel = sellerStore.sellerApplication?.storeName;
@@ -74,8 +78,9 @@ class ProfileScreen extends StatelessWidget {
                             backgroundColor: AppColors.surfaceMuted,
                             child: Text(
                               displayName[0],
-                              style:
-                                  AppTypography.h1(color: AppColors.forestGreen),
+                              style: AppTypography.h1(
+                                color: AppColors.forestGreen,
+                              ),
                             ),
                           ),
                           if (isVerified)
@@ -111,7 +116,7 @@ class ProfileScreen extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _StatCard(
-                              value: sellerStore.sellerRating.toStringAsFixed(1),
+                              value: ratingLabel,
                               label: 'Rating',
                             ),
                           ),
@@ -144,16 +149,14 @@ class ProfileScreen extends StatelessWidget {
                           icon: LucideIcons.clock3,
                           title: 'Seller application',
                           subtitle: 'Campus review in progress',
-                          onTap: () =>
-                              SellEntry.openSellerApplication(context),
+                          onTap: () => SellEntry.openSellerApplication(context),
                         )
                       else if (!isSeller)
                         _ProfileTile(
                           icon: LucideIcons.store,
                           title: 'Apply to sell',
                           subtitle: 'Submit campus details to start selling',
-                          onTap: () =>
-                              SellEntry.openSellerApplication(context),
+                          onTap: () => SellEntry.openSellerApplication(context),
                         ),
                       _ProfileTile(
                         icon: LucideIcons.shieldCheck,
@@ -161,12 +164,11 @@ class ProfileScreen extends StatelessWidget {
                         subtitle: isVerified
                             ? 'Verified campus seller'
                             : sellerStore.verificationPending
-                                ? 'Badge review in progress'
-                                : sellerStore.canApplyForVerification
-                                    ? 'You qualify — apply now'
-                                    : 'Unlock after meeting seller criteria',
-                        onTap: () =>
-                            SellEntry.openVerifiedApplication(context),
+                            ? 'Badge review in progress'
+                            : sellerStore.canApplyForVerification
+                            ? 'You qualify — apply now'
+                            : 'Unlock after meeting seller criteria',
+                        onTap: () => SellEntry.openVerifiedApplication(context),
                       ),
                       _ProfileTile(
                         icon: LucideIcons.plusCircle,
@@ -174,8 +176,8 @@ class ProfileScreen extends StatelessWidget {
                         subtitle: isSeller
                             ? 'Sell to students on campus'
                             : sellerPending
-                                ? 'Waiting for seller approval'
-                                : 'Apply to sell first',
+                            ? 'Waiting for seller approval'
+                            : 'Apply to sell first',
                         onTap: () => SellEntry.openPostFlow(context),
                       ),
                       _ProfileTile(
@@ -209,8 +211,9 @@ class ProfileScreen extends StatelessWidget {
                       _ProfileTile(
                         icon: LucideIcons.bell,
                         title: 'Notifications',
-                        onTap: () => Navigator.of(context)
-                            .pushNamed(AppRoutes.notifications),
+                        onTap: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.notifications),
                       ),
                       const SizedBox(height: 16),
                       _SectionTitle('Recent listings'),
@@ -379,10 +382,7 @@ class _RecentListingRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.bodyBold(),
                   ),
-                  Text(
-                    listing.formattedPrice,
-                    style: AppTypography.caption(),
-                  ),
+                  Text(listing.formattedPrice, style: AppTypography.caption()),
                 ],
               ),
             ),

@@ -27,11 +27,9 @@ abstract final class SellEntry {
     }
 
     if (!context.mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const PostListingScreen(),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const PostListingScreen()));
   }
 
   static Future<void> openSellerApplication(BuildContext context) async {
@@ -48,17 +46,21 @@ abstract final class SellEntry {
     }
 
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const SellerApplicationScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const SellerApplicationScreen()),
     );
   }
 
-  static Future<void> openVerifiedApplication(BuildContext context) {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const VerifiedSellerScreen(),
-      ),
+  static Future<void> openVerifiedApplication(BuildContext context) async {
+    final store = SellerStoreScope.of(context);
+
+    if (!store.isSeller) {
+      await openSellerApplication(context);
+      return;
+    }
+
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const VerifiedSellerScreen()),
     );
   }
 }

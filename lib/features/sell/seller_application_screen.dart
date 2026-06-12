@@ -17,10 +17,7 @@ import 'widgets/id_upload_card.dart';
 import 'widgets/seller_status_layout.dart';
 
 class SellerApplicationScreen extends StatefulWidget {
-  const SellerApplicationScreen({
-    super.key,
-    this.continueToListing = false,
-  });
+  const SellerApplicationScreen({super.key, this.continueToListing = false});
 
   final bool continueToListing;
 
@@ -99,7 +96,7 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
 
     try {
       if (_idDocumentPath != null) {
-        idDocumentUrl = await client.uploadListingPhoto(_idDocumentPath!);
+        idDocumentUrl = await client.uploadSellerDocument(_idDocumentPath!);
       }
     } catch (error) {
       if (!mounted) return;
@@ -140,9 +137,9 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -204,7 +201,10 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
                             prefixIcon: Icons.person_outline,
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          Text('Student email', style: AppTypography.bodyBold()),
+                          Text(
+                            'Student email',
+                            style: AppTypography.bodyBold(),
+                          ),
                           const SizedBox(height: 8),
                           UniTextField(
                             hint: 'you@university.edu',

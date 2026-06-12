@@ -162,16 +162,15 @@ class SellerStore extends ChangeNotifier {
   List<ListingItem> get myListings =>
       listingRecords.map((r) => r.listing).toList();
 
-  List<ListingItem> get activeListings => _records
-      .where((r) => r.isActive)
-      .map((r) => r.listing)
-      .toList();
+  List<ListingItem> get activeListings =>
+      _records.where((r) => r.isActive).map((r) => r.listing).toList();
 
   List<ListingItem> get allListings {
     if (useRemoteCatalog) {
       final ownedIds = _records.map((r) => r.listing.id).toSet();
-      final remoteOnly =
-          _remoteCatalog.where((l) => !ownedIds.contains(l.canonicalId));
+      final remoteOnly = _remoteCatalog.where(
+        (l) => !ownedIds.contains(l.canonicalId),
+      );
       return [...activeListings, ...remoteOnly];
     }
     return [...activeListings, ...MockListings.items];
@@ -203,7 +202,24 @@ class SellerStore extends ChangeNotifier {
 
   int get totalMessages => _records.fold<int>(0, (sum, r) => sum + r.messages);
 
-  double get sellerRating => MockProfile.rating;
+  int get sellerReviewCount =>
+      _records.fold<int>(0, (sum, r) => sum + r.listing.reviewCount);
+
+  double get sellerRating {
+    final rated = _records.where((r) => r.listing.reviewCount > 0).toList();
+    if (rated.isEmpty) return 0;
+
+    final totalScore = rated.fold<double>(
+      0,
+      (sum, r) => sum + (r.listing.rating * r.listing.reviewCount),
+    );
+    final totalReviews = rated.fold<int>(
+      0,
+      (sum, r) => sum + r.listing.reviewCount,
+    );
+    if (totalReviews == 0) return 0;
+    return totalScore / totalReviews;
+  }
 
   int get daysAsSeller {
     final appliedAt = sellerApplication?.appliedAt;
@@ -211,11 +227,9 @@ class SellerStore extends ChangeNotifier {
     return DateTime.now().difference(appliedAt).inDays;
   }
 
-  String get storeName =>
-      sellerApplication?.storeName ?? MockProfile.name;
+  String get storeName => sellerApplication?.storeName ?? MockProfile.name;
 
-  bool get hasStudentIdOnFile =>
-      sellerApplication?.studentIdUploaded ?? false;
+  bool get hasStudentIdOnFile => sellerApplication?.studentIdUploaded ?? false;
 
   bool get meetsSalesCriteria =>
       soldCount >= VerificationCriteria.minCompletedSales;
@@ -344,10 +358,11 @@ class SellerStore extends ChangeNotifier {
 
     if (listing.hasActiveDiscount) {
       draft.enableDiscount = true;
-      draft.discountPercent = listing.discountPercent ??
+      draft.discountPercent =
+          listing.discountPercent ??
           PostListingDraft.discountPercentOptions.first;
-      draft.discountValidDays = listing.discountDurationDays ??
-          listing.discountDaysRemaining;
+      draft.discountValidDays =
+          listing.discountDurationDays ?? listing.discountDaysRemaining;
       draft.price = listing.originalPrice!.toStringAsFixed(0);
     } else {
       draft.price = listing.price.toStringAsFixed(0);
@@ -533,8 +548,8 @@ class SellerStore extends ChangeNotifier {
       availabilityType: draft.availabilityType,
       quantityAvailable: draft.resolvedQuantityAvailable,
       unitsSold: preserveFrom?.unitsSold ?? 0,
-      lifecycleStatus: preserveFrom?.lifecycleStatus ??
-          ListingLifecycleStatus.active,
+      lifecycleStatus:
+          preserveFrom?.lifecycleStatus ?? ListingLifecycleStatus.active,
     );
   }
 
@@ -543,7 +558,8 @@ class SellerStore extends ChangeNotifier {
     double? originalPrice,
     DateTime? discountEndsAt,
     int? discountDurationDays,
-  }) _resolveDiscountPricing(PostListingDraft draft, double listPrice) {
+  })
+  _resolveDiscountPricing(PostListingDraft draft, double listPrice) {
     if (!draft.enableDiscount) {
       return (
         salePrice: listPrice,
@@ -557,8 +573,9 @@ class SellerStore extends ChangeNotifier {
     return (
       salePrice: sale.roundToDouble(),
       originalPrice: listPrice,
-      discountEndsAt:
-          DateTime.now().add(Duration(days: draft.discountValidDays)),
+      discountEndsAt: DateTime.now().add(
+        Duration(days: draft.discountValidDays),
+      ),
       discountDurationDays: draft.discountValidDays,
     );
   }
@@ -663,10 +680,7 @@ class SellerStore extends ChangeNotifier {
 
   @Deprecated('Use recordSale instead')
   void markAsSold(String listingId) {
-    _applyLocalSale(
-      _records.indexWhere((r) => r.listing.id == listingId),
-      1,
-    );
+    _applyLocalSale(_records.indexWhere((r) => r.listing.id == listingId), 1);
     notifyListeners();
   }
 
@@ -677,7 +691,8 @@ class SellerStore extends ChangeNotifier {
     _records[index] = _records[index].copyWithListing(
       _records[index].listing.copyWith(
         lifecycleStatus: ListingLifecycleStatus.active,
-        unitsSold: _records[index].listing.availabilityType ==
+        unitsSold:
+            _records[index].listing.availabilityType ==
                 ListingAvailabilityType.unique
             ? 0
             : _records[index].listing.unitsSold,
@@ -726,12 +741,15 @@ class SellerStore extends ChangeNotifier {
         );
     }
 
-    _records[index] = record.copyWithListing(updated).copyWith(
-          postedLabel: listing.availabilityType == ListingAvailabilityType.ongoing
+    _records[index] = record
+        .copyWithListing(updated)
+        .copyWith(
+          postedLabel:
+              listing.availabilityType == ListingAvailabilityType.ongoing
               ? '${updated.unitsSold} completed'
               : updated.lifecycleStatus == ListingLifecycleStatus.active
-                  ? record.postedLabel
-                  : 'Sold · just now',
+              ? record.postedLabel
+              : 'Sold · just now',
         );
     return null;
   }
@@ -739,13 +757,15 @@ class SellerStore extends ChangeNotifier {
   void _applySaleResult(int index, RecordSaleResult result) {
     final record = _records[index];
     final updatedListing = result.listing;
-    _records[index] = record.copyWithListing(updatedListing).copyWith(
-          postedLabel: updatedListing.availabilityType ==
-                  ListingAvailabilityType.ongoing
+    _records[index] = record
+        .copyWithListing(updatedListing)
+        .copyWith(
+          postedLabel:
+              updatedListing.availabilityType == ListingAvailabilityType.ongoing
               ? '${updatedListing.unitsSold} completed'
               : updatedListing.isBrowseable
-                  ? record.postedLabel
-                  : 'Sold · just now',
+              ? record.postedLabel
+              : 'Sold · just now',
         );
   }
 
@@ -820,16 +840,24 @@ class SellerStore extends ChangeNotifier {
       final items = await client.fetchListings();
       _remoteCatalog = items;
       useRemoteCatalog = true;
+      if (isLiveSession(client)) {
+        _records.clear();
+      }
       applyUserProfile(user);
 
-      for (final item in items.where((l) => l.sellerName == user.fullName)) {
+      for (final item in items.where(_isOwnedByUser(user))) {
         _upsertOwnedListing(item);
       }
     } catch (error) {
       catalogSyncError = error.toString();
-      if (!isLiveSession(client) &&
-          user.email.toLowerCase() == MockProfile.email.toLowerCase()) {
-        loadDemoSellerState(displayName: user.fullName, email: user.email);
+      if (!isLiveSession(client)) {
+        if (user.email.toLowerCase() == MockProfile.email.toLowerCase()) {
+          loadDemoSellerState(displayName: user.fullName, email: user.email);
+        }
+      } else {
+        _records.clear();
+        _remoteCatalog = [];
+        useRemoteCatalog = true;
       }
     } finally {
       isSyncingCatalog = false;
@@ -853,7 +881,9 @@ class SellerStore extends ChangeNotifier {
       sellerApplication = SellerApplication(
         fullName: user.fullName,
         studentEmail: user.email,
-        storeName: user.fullName,
+        storeName: user.storeName ??
+            sellerApplication?.storeName ??
+            user.fullName,
         studentIdUploaded: true,
         appliedAt: sellerApplication?.appliedAt ?? DateTime.now(),
       );
@@ -874,7 +904,10 @@ class SellerStore extends ChangeNotifier {
       'pending' => SellerApplicationStatus.pending,
       'rejected' => SellerApplicationStatus.rejected,
       'approved' => SellerApplicationStatus.approved,
-      _ => isSeller ? SellerApplicationStatus.approved : SellerApplicationStatus.none,
+      _ =>
+        isSeller
+            ? SellerApplicationStatus.approved
+            : SellerApplicationStatus.none,
     };
   }
 
@@ -916,5 +949,14 @@ class SellerStore extends ChangeNotifier {
         photoAssets: listing.displayPhotos,
       ),
     );
+  }
+
+  bool Function(ListingItem listing) _isOwnedByUser(AppUser user) {
+    return (listing) {
+      if (listing.sellerUserId.isNotEmpty) {
+        return listing.sellerUserId == user.id;
+      }
+      return listing.sellerName == user.fullName;
+    };
   }
 }

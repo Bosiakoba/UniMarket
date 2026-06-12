@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../core/models/message_thread.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/message_store_scope.dart';
+import '../../core/widgets/user_session_scope.dart';
 import '../../core/widgets/uni_text_field.dart';
 import 'chat_screen.dart';
 import 'widgets/inbox_empty_state.dart';
@@ -22,6 +26,33 @@ class MessagesScreen extends StatefulWidget {
 class _MessagesScreenState extends State<MessagesScreen> {
   _InboxFilter _filter = _InboxFilter.all;
   String _query = '';
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refresh();
+      _refreshTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => _refresh(),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _refresh() {
+    final userId = UserSessionScope.of(context).currentUser?.id;
+    if (userId == null) return;
+    MessageStoreScope.of(
+      context,
+    ).syncFromApi(ApiClientScope.of(context), userId: userId);
+  }
 
   List<MessageThread> _visibleThreads(List<MessageThread> threads) {
     var result = threads;
@@ -102,8 +133,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       _FilterChip(
                         label: 'All',
                         selected: _filter == _InboxFilter.all,
-                        onTap: () =>
-                            setState(() => _filter = _InboxFilter.all),
+                        onTap: () => setState(() => _filter = _InboxFilter.all),
                       ),
                       const SizedBox(width: 8),
                       _FilterChip(
@@ -121,43 +151,38 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   child: threads.isEmpty
                       ? const InboxEmptyState()
                       : visible.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(32),
-                                child: Text(
-                                  _filter == _InboxFilter.unread
-                                      ? 'You are all caught up.'
-                                      : 'No conversations match your search.',
-                                  textAlign: TextAlign.center,
-                                  style: AppTypography.body(
-                                    color: AppColors.textSecondary,
-                                  ),
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Text(
+                              _filter == _InboxFilter.unread
+                                  ? 'You are all caught up.'
+                                  : 'No conversations match your search.',
+                              textAlign: TextAlign.center,
+                              style: AppTypography.body(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: EdgeInsets.fromLTRB(20, 0, 20, bottom + 20),
+                          itemCount: visible.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final thread = visible[index];
+                            return ThreadTile(
+                              thread: thread,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      ChatScreen(threadId: thread.id),
                                 ),
                               ),
-                            )
-                          : ListView.separated(
-                              padding: EdgeInsets.fromLTRB(
-                                20,
-                                0,
-                                20,
-                                bottom + 20,
-                              ),
-                              itemCount: visible.length,
-                              separatorBuilder: (context, index) =>
-                                  const SizedBox(height: 12),
-                              itemBuilder: (context, index) {
-                                final thread = visible[index];
-                                return ThreadTile(
-                                  thread: thread,
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) =>
-                                          ChatScreen(threadId: thread.id),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                            );
+                          },
+                        ),
                 ),
               ],
             );

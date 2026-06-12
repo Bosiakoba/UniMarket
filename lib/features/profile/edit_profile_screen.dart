@@ -16,20 +16,24 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _universityController;
-  late final TextEditingController _campusController;
-  late final TextEditingController _phoneController;
+  final _nameController = TextEditingController();
+  final _universityController = TextEditingController();
+  final _campusController = TextEditingController();
+  final _phoneController = TextEditingController();
   var _saving = false;
+  var _hydrated = false;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hydrated) return;
     final user = UserSessionScope.of(context).currentUser;
-    _nameController = TextEditingController(text: user?.fullName ?? '');
-    _universityController = TextEditingController(text: user?.university ?? '');
-    _campusController = TextEditingController(text: user?.campus ?? '');
-    _phoneController = TextEditingController(text: user?.phone ?? '');
+    if (user == null) return;
+    _nameController.text = user.fullName;
+    _universityController.text = user.university;
+    _campusController.text = user.campus;
+    _phoneController.text = user.phone ?? '';
+    _hydrated = true;
   }
 
   @override

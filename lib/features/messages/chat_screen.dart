@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -23,6 +25,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+  Timer? _refreshTimer;
 
   @override
   void initState() {
@@ -45,6 +48,19 @@ class _ChatScreenState extends State<ChatScreen> {
         _controller.text =
             'Hi! Is ${thread.attachedListing!.title} still available?';
       }
+      _startRefreshTimer();
+    });
+  }
+
+  void _startRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      final userId = UserSessionScope.of(context).currentUser?.id;
+      MessageStoreScope.of(context).refreshThreadMessages(
+        threadId: widget.threadId,
+        client: ApiClientScope.of(context),
+        currentUserId: userId,
+      );
     });
   }
 
@@ -52,6 +68,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
@@ -86,9 +103,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!mounted) return;
 
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
       return;
     }
 
@@ -118,11 +135,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildChat(
-    BuildContext context,
-    MessageThread thread,
-    double bottom,
-  ) {
+  Widget _buildChat(BuildContext context, MessageThread thread, double bottom) {
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
@@ -137,10 +150,7 @@ class _ChatScreenState extends State<ChatScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(thread.sellerName, style: AppTypography.bodyBold()),
-            Text(
-              'Campus seller',
-              style: AppTypography.caption(),
-            ),
+            Text('Campus seller', style: AppTypography.caption()),
           ],
         ),
       ),
@@ -165,8 +175,8 @@ class _ChatScreenState extends State<ChatScreen> {
           _Composer(
             controller: _controller,
             attachedListing: thread.attachedListing,
-            onRemoveAttachment: () => MessageStoreScope.of(context)
-                .clearAttachment(widget.threadId),
+            onRemoveAttachment: () =>
+                MessageStoreScope.of(context).clearAttachment(widget.threadId),
             onSend: _send,
             bottomPadding: bottom,
           ),
@@ -222,7 +232,9 @@ class _Composer extends StatelessWidget {
                     hintText: attachedListing != null
                         ? 'Ask about this listing...'
                         : 'Type a message...',
-                    hintStyle: AppTypography.body(color: AppColors.textTertiary),
+                    hintStyle: AppTypography.body(
+                      color: AppColors.textTertiary,
+                    ),
                     filled: true,
                     fillColor: AppColors.surfaceMuted,
                     border: OutlineInputBorder(
