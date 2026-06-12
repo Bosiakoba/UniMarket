@@ -2,7 +2,9 @@
 
 Main backend for the Flutter app. Matches `md/deep-research-report.md` and prototype stores in `lib/core/data/stores/`.
 
-**Firebase Auth**, **SQLite persistence** (D1-compatible schema), and **Cloudflare R2/D1** integrations are wired. Data survives API restarts in `data/unimarket.db`.
+**Firebase Auth** (login only), **Cloudflare D1** (all app records), and **Cloudflare R2** (uploads) are the production data layer. The C# API is **stateless logic** — it can run on your dev machine or Railway without storing data locally.
+
+When `Cloudflare__D1Enabled=true` and D1 credentials are set, every read/write goes to **D1** (the API uses a short-lived in-memory cache and syncs back to D1 after each save). When D1 is off, local `data/unimarket.db` is used for offline dev only.
 
 ## Home server (demo day)
 
@@ -73,9 +75,11 @@ cp backend/UniMarket.Api/.env.example backend/UniMarket.Api/.env
 
 3. Start the API — `.env` is loaded automatically from the project folder.
 
-**Database:** User profiles (`ProfileComplete`, interests, seller status) are stored in SQLite and persist across restarts. Enable `Cloudflare__D1Enabled=true` to auto-apply `cloudflare/d1/schema.sql` to your remote D1 (for Workers/admin); the home server continues to use the SQLite file as its primary store.
+**Database (production):** Set `Cloudflare__D1Enabled=true` with Account ID, Database ID, and API token. All users, listings, chats, seller applications, etc. live in **D1** — view them in the Cloudflare dashboard → D1 → `unimarket-db` → Studio.
 
-**Uploads:** With R2 disabled, seller ID photos save to `data/uploads/` and are served at `/media/...` when `Cloudflare__AllowLocalUploadFallback=true`.
+**Uploads (production):** Set `Cloudflare__R2Enabled=true` and disable local fallback (`Cloudflare__AllowLocalUploadFallback=false`). Student ID photos and listing images are stored in **R2**, not on the API server.
+
+**Local dev (optional):** Leave D1/R2 disabled to use `data/unimarket.db` and `data/uploads/` on your machine only.
 
 4. Check readiness (no secrets returned):
 

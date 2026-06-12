@@ -15,7 +15,8 @@ public class CloudflareSettings
     public bool R2Enabled { get; set; }
 
     /// <summary>When R2 is off, save uploads under data/uploads on the API server.</summary>
-    public bool AllowLocalUploadFallback { get; set; } = true;
+    /// <summary>Dev-only. Production should use R2 (set false).</summary>
+    public bool AllowLocalUploadFallback { get; set; }
 
     public string R2AccessKeyId { get; set; } = string.Empty;
 

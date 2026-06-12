@@ -21,23 +21,44 @@ builder.Services.Configure<ResendSettings>(
 builder.Services.Configure<ApiSettings>(
     builder.Configuration.GetSection(ApiSettings.SectionName));
 
-var connectionString = builder.Configuration.GetConnectionString("Default")
-    ?? "Data Source=data/unimarket.db";
-var dbFilePath = connectionString.Replace("Data Source=", "", StringComparison.OrdinalIgnoreCase)
-    .Trim();
-if (!Path.IsPathRooted(dbFilePath))
-{
-    dbFilePath = Path.Combine(builder.Environment.ContentRootPath, dbFilePath);
-}
+var cloudflareSettings = builder.Configuration
+    .GetSection(CloudflareSettings.SectionName)
+    .Get<CloudflareSettings>() ?? new CloudflareSettings();
+var useD1Primary = cloudflareSettings.IsD1Configured;
 
-var dbDirectory = Path.GetDirectoryName(dbFilePath);
-if (!string.IsNullOrWhiteSpace(dbDirectory))
+if (useD1Primary)
 {
-    Directory.CreateDirectory(dbDirectory);
-}
+    builder.Services.AddHttpClient(nameof(D1Client));
+    builder.Services.AddSingleton<D1Client>();
+    builder.Services.AddSingleton<D1EntitySqlBuilder>();
+    builder.Services.AddSingleton<D1SaveChangesInterceptor>();
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite($"Data Source={dbFilePath}"));
+    builder.Services.AddDbContext<AppDbContext>((sp, options) =>
+    {
+        options.UseSqlite("Data Source=:memory:");
+        options.AddInterceptors(sp.GetRequiredService<D1SaveChangesInterceptor>());
+    });
+}
+else
+{
+    var connectionString = builder.Configuration.GetConnectionString("Default")
+        ?? "Data Source=data/unimarket.db";
+    var dbFilePath = connectionString.Replace("Data Source=", "", StringComparison.OrdinalIgnoreCase)
+        .Trim();
+    if (!Path.IsPathRooted(dbFilePath))
+    {
+        dbFilePath = Path.Combine(builder.Environment.ContentRootPath, dbFilePath);
+    }
+
+    var dbDirectory = Path.GetDirectoryName(dbFilePath);
+    if (!string.IsNullOrWhiteSpace(dbDirectory))
+    {
+        Directory.CreateDirectory(dbDirectory);
+    }
+
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlite($"Data Source={dbFilePath}"));
+}
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -79,24 +100,48 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-var localUploadRoot = Path.Combine(app.Environment.ContentRootPath, "data", "uploads");
-Directory.CreateDirectory(localUploadRoot);
-app.UseStaticFiles(new StaticFileOptions
+if (!useD1Primary)
 {
-    FileProvider = new PhysicalFileProvider(localUploadRoot),
-    RequestPath = "/media",
-});
+    var localUploadRoot = Path.Combine(app.Environment.ContentRootPath, "data", "uploads");
+    Directory.CreateDirectory(localUploadRoot);
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(localUploadRoot),
+        RequestPath = "/media",
+    });
+}
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.EnsureCreatedAsync();
-    await DatabaseSchemaPatcher.ApplyAsync(db);
+
+    if (!useD1Primary)
+    {
+        await DatabaseSchemaPatcher.ApplyAsync(db);
+    }
 
     var d1Initializer = scope.ServiceProvider.GetRequiredService<D1SchemaInitializer>();
     await d1Initializer.EnsureSchemaAsync();
 
-    await SeedData.InitializeAsync(db);
+    if (useD1Primary)
+    {
+        var d1 = scope.ServiceProvider.GetRequiredService<D1Client>();
+        var sqlBuilder = scope.ServiceProvider.GetRequiredService<D1EntitySqlBuilder>();
+        var hasRemoteData = await d1.TableHasRowsAsync("Users");
+        if (hasRemoteData)
+        {
+            await sqlBuilder.HydrateAsync(db);
+        }
+        else
+        {
+            await SeedData.InitializeAsync(db);
+        }
+    }
+    else
+    {
+        await SeedData.InitializeAsync(db);
+    }
 }
 
 app.UseSwagger();
@@ -114,16 +159,21 @@ app.MapGet("/health", (
     var fb = firebase.Value;
     var cf = cloudflare.Value;
     var adminSettings = admin.Value;
-    var dbPath = configuration.GetConnectionString("Default") ?? "Data Source=data/unimarket.db";
+    var d1Primary = cf.IsD1Configured;
     return Results.Ok(new
     {
         status = "ok",
         time = DateTime.UtcNow,
         database = new
         {
-            provider = "sqlite",
-            path = dbPath,
-            persistent = true,
+            provider = d1Primary ? "cloudflare-d1" : "sqlite-file",
+            primary = d1Primary ? "d1" : "local-file",
+            path = d1Primary ? cf.D1DatabaseId : configuration.GetConnectionString("Default"),
+            statelessApi = d1Primary,
+        },
+        storage = new
+        {
+            uploads = cf.IsR2Configured ? "r2" : cf.AllowLocalUploadFallback ? "local-fallback" : "not-configured",
         },
         integrations = new
         {
@@ -135,7 +185,7 @@ app.MapGet("/health", (
             },
             cloudflare = new
             {
-                d1 = new { enabled = cf.D1Enabled, configured = cf.IsD1Configured },
+                d1 = new { enabled = cf.D1Enabled, configured = cf.IsD1Configured, primary = d1Primary },
                 r2 = new
                 {
                     enabled = cf.R2Enabled,
