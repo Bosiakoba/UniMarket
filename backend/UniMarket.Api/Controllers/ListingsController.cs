@@ -88,9 +88,9 @@ public class ListingsController(
         if (user is null) return NotFound();
         if (!user.IsSeller) return Forbid();
 
-        if (!user.IsSeller)
+        if (request.PhotoUrls is null || request.PhotoUrls.Count == 0)
         {
-            user.IsSeller = true;
+            return BadRequest(new { message = "Add at least one listing photo." });
         }
 
         var id = Guid.NewGuid().ToString("N")[..12];
@@ -131,7 +131,13 @@ public class ListingsController(
 
         db.Listings.Add(listing);
         await db.SaveChangesAsync(ct);
-        return CreatedAtAction(nameof(GetById), new { id }, await mapper.ToDtoAsync(listing, ct));
+
+        var saved = await db.Listings
+            .Include(l => l.Images)
+            .Include(l => l.Owner)
+            .FirstAsync(l => l.Id == id, ct);
+
+        return CreatedAtAction(nameof(GetById), new { id }, await mapper.ToDtoAsync(saved, ct));
     }
 
     [HttpPut("{id}")]
@@ -149,6 +155,11 @@ public class ListingsController(
 
         if (listing is null) return NotFound();
         if (listing.UserId != currentUser.UserId) return Forbid();
+
+        if (request.PhotoUrls is null || request.PhotoUrls.Count == 0)
+        {
+            return BadRequest(new { message = "Add at least one listing photo." });
+        }
 
         listing.Title = request.Title.Trim();
         listing.Description = request.Description.Trim();

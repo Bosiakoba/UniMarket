@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
-import '../constants/app_assets.dart';
+import '../models/post_listing_draft.dart';
+import '../theme/app_colors.dart';
 import 'skeleton_loaders.dart';
 
 /// Renders a listing photo from a network URL or local asset path.
@@ -53,10 +56,27 @@ class ListingImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedSource = normalizeSource(source);
-    final child = isNetworkSource(resolvedSource)
-        ? _network(resolvedSource)
-        : _asset(resolvedSource);
+    final trimmed = source.trim();
+    if (trimmed.isEmpty) {
+      return _wrap(_placeholder());
+    }
+
+    final resolvedSource = normalizeSource(trimmed);
+    final Widget child;
+    if (isNetworkSource(resolvedSource)) {
+      child = _network(resolvedSource);
+    } else if (PostListingDraft.isLocalFile(resolvedSource)) {
+      child = Image.file(
+        File(resolvedSource),
+        fit: fit,
+        width: width,
+        height: height,
+        cacheWidth: cacheWidth,
+        errorBuilder: (_, _, _) => _placeholder(),
+      );
+    } else {
+      child = _asset(resolvedSource);
+    }
 
     return _wrap(child);
   }
@@ -68,7 +88,7 @@ class ListingImage extends StatelessWidget {
       width: width,
       height: height,
       cacheWidth: cacheWidth,
-      errorBuilder: (_, _, _) => _fallback(),
+      errorBuilder: (_, _, _) => _placeholder(),
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;
         return SkeletonBox(
@@ -91,18 +111,23 @@ class ListingImage extends StatelessWidget {
         if (isNetworkSource(source) || isNetworkSource(assetPath)) {
           return _network(normalizeSource(source));
         }
-        return _fallback();
+        return _placeholder();
       },
     );
   }
 
-  Widget _fallback() {
-    return Image.asset(
-      AppAssets.ob1Collage3,
-      fit: fit,
-      width: width,
-      height: height,
-      cacheWidth: cacheWidth,
+  Widget _placeholder() {
+    return ColoredBox(
+      color: AppColors.surfaceMuted,
+      child: Center(
+        child: Icon(
+          Icons.image_outlined,
+          color: AppColors.textTertiary,
+          size: (width != null && height != null)
+              ? (width! < height! ? width! : height!) * 0.28
+              : 28,
+        ),
+      ),
     );
   }
 

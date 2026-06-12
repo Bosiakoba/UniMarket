@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
-import '../constants/app_assets.dart';
 import '../models/app_user.dart';
 import '../models/app_notification.dart';
 import '../models/chat_message.dart';
@@ -215,7 +214,7 @@ class ApiClient {
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     final json = _decodeObject(response, errorLabel: 'Photo upload failed');
-    final url = json['url'] as String?;
+    final url = _readUploadUrl(json);
     if (url == null || url.isEmpty) {
       throw ApiException('Photo upload failed: missing URL');
     }
@@ -241,11 +240,20 @@ class ApiClient {
       response,
       errorLabel: 'Student ID upload failed',
     );
-    final url = json['url'] as String?;
+    final url = _readUploadUrl(json);
     if (url == null || url.isEmpty) {
       throw ApiException('Student ID upload failed: missing URL');
     }
     return url;
+  }
+
+  static String? _readUploadUrl(Map<String, dynamic> json) {
+    for (final entry in json.entries) {
+      if (entry.key.toLowerCase() == 'url' && entry.value is String) {
+        return entry.value as String;
+      }
+    }
+    return null;
   }
 
   Future<ListingItem> createListing({
@@ -709,13 +717,22 @@ class ApiClient {
 }
 
 abstract final class ListingMapper {
+  static List<String> photoUrlsFromJson(Map<String, dynamic> json) {
+    for (final entry in json.entries) {
+      if (entry.key.toLowerCase() != 'photourls' || entry.value is! List) {
+        continue;
+      }
+      return (entry.value as List)
+          .map((e) => e.toString().trim())
+          .where((url) => url.isNotEmpty)
+          .toList();
+    }
+    return const [];
+  }
+
   static ListingItem fromJson(Map<String, dynamic> json) {
-    final photos =
-        (json['photoUrls'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        const <String>[];
-    final image = photos.isNotEmpty ? photos.first : AppAssets.ob1Collage3;
+    final photos = photoUrlsFromJson(json);
+    final image = photos.isNotEmpty ? photos.first : '';
 
     return ListingItem(
       id: json['id'] as String,

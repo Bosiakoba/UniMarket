@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../api/api_client.dart';
 import '../../api/session_mode.dart';
+import '../../services/firebase_auth_service.dart';
 import '../../models/app_user.dart';
 import '../../constants/app_assets.dart';
 import '../../constants/verification_criteria.dart';
@@ -418,10 +419,8 @@ class SellerStore extends ChangeNotifier {
     required PostListingDraft draft,
     ApiClient? client,
   }) async {
-    if (client?.idToken == null) {
-      publish(draft);
-      return null;
-    }
+    final authError = await _prepareListingPublish(draft, client);
+    if (authError != null) return authError;
 
     try {
       final photoUrls = await _resolvePhotoUrls(draft, client!);
@@ -447,7 +446,7 @@ class SellerStore extends ChangeNotifier {
         availabilityType: draft.availabilityType.name,
         quantityAvailable: draft.resolvedQuantityAvailable,
       );
-      _upsertOwnedListing(listing);
+      _upsertOwnedListing(_listingWithUploadedPhotos(listing, photoUrls));
       notifyListeners();
       return null;
     } catch (error) {
@@ -460,10 +459,8 @@ class SellerStore extends ChangeNotifier {
     required PostListingDraft draft,
     ApiClient? client,
   }) async {
-    if (client?.idToken == null) {
-      updateListing(listingId, draft);
-      return null;
-    }
+    final authError = await _prepareListingPublish(draft, client);
+    if (authError != null) return authError;
 
     try {
       final photoUrls = await _resolvePhotoUrls(draft, client!);
@@ -490,12 +487,51 @@ class SellerStore extends ChangeNotifier {
         availabilityType: draft.availabilityType.name,
         quantityAvailable: draft.resolvedQuantityAvailable,
       );
-      _upsertOwnedListing(listing);
+      _upsertOwnedListing(_listingWithUploadedPhotos(listing, photoUrls));
       notifyListeners();
       return null;
     } catch (error) {
       return error.toString();
     }
+  }
+
+  Future<String?> _prepareListingPublish(
+    PostListingDraft draft,
+    ApiClient? client,
+  ) async {
+    final hasDevicePhotos = draft.photoAssets.any(PostListingDraft.isLocalFile);
+    final hasBundledPhotos = draft.photoAssets.any(PostListingDraft.isBundledAsset);
+
+    if (client == null) {
+      if (hasDevicePhotos) {
+        return 'Sign in to publish photos from your gallery or camera.';
+      }
+      if (hasBundledPhotos) {
+        publish(draft);
+        return null;
+      }
+      return 'Add at least one photo.';
+    }
+
+    if (client.idToken == null) {
+      final token = await FirebaseAuthService.getIdToken();
+      if (token != null) {
+        client.idToken = token;
+      }
+    }
+
+    if (client.idToken == null) {
+      if (hasDevicePhotos) {
+        return 'Sign in to publish photos from your gallery or camera.';
+      }
+      if (hasBundledPhotos) {
+        publish(draft);
+        return null;
+      }
+      return 'Add at least one photo.';
+    }
+
+    return null;
   }
 
   Future<List<String>> _resolvePhotoUrls(
@@ -510,7 +546,32 @@ class SellerStore extends ChangeNotifier {
         urls.add(await client.uploadListingPhoto(photo));
       }
     }
+
+    if (draft.photoAssets.isNotEmpty && urls.isEmpty) {
+      throw ApiException(
+        'Could not prepare your listing photos. Try re-adding them.',
+      );
+    }
+
     return urls;
+  }
+
+  ListingItem _listingWithUploadedPhotos(
+    ListingItem listing,
+    List<String> uploadedUrls,
+  ) {
+    final remotePhotos = listing.photoUrls
+        .where((url) => url.trim().isNotEmpty)
+        .toList();
+    if (remotePhotos.isNotEmpty) return listing;
+
+    final photos = uploadedUrls.where((url) => url.trim().isNotEmpty).toList();
+    if (photos.isEmpty) return listing;
+
+    return listing.copyWith(
+      photoUrls: photos,
+      imageAsset: photos.first,
+    );
   }
 
   ListingItem publish(PostListingDraft draft) {
@@ -566,11 +627,20 @@ class SellerStore extends ChangeNotifier {
     final listPrice = double.parse(draft.price.trim());
     final pricing = _resolveDiscountPricing(draft, listPrice);
 
+    final photos = draft.photoAssets
+        .where(
+          (photo) =>
+              PostListingDraft.isRemotePhoto(photo) ||
+              PostListingDraft.isLocalFile(photo),
+        )
+        .toList();
+
     return ListingItem(
       id: id,
       title: draft.title.trim(),
       price: pricing.salePrice,
-      imageAsset: draft.photoAssets.first,
+      imageAsset: photos.isNotEmpty ? photos.first : '',
+      photoUrls: photos,
       sellerName: storeName,
       isVerified: isVerified,
       distanceKm: preserveFrom?.distanceKm ?? 0,
@@ -974,19 +1044,31 @@ class SellerStore extends ChangeNotifier {
 
   void _upsertOwnedListing(ListingItem listing) {
     final index = _records.indexWhere((r) => r.listing.id == listing.id);
+    var resolved = listing;
+
+    if (resolved.photoUrls.isEmpty && index >= 0) {
+      final existing = _records[index].listing;
+      if (existing.photoUrls.isNotEmpty) {
+        resolved = resolved.copyWith(
+          photoUrls: existing.photoUrls,
+          imageAsset: existing.primaryPhotoSource,
+        );
+      }
+    }
+
     if (index >= 0) {
-      _records[index] = _records[index].copyWithListing(listing);
+      _records[index] = _records[index].copyWithListing(resolved);
       return;
     }
 
     _records.add(
       SellerListingRecord(
-        listing: listing,
+        listing: resolved,
         views: 0,
         messages: 0,
         postedLabel: 'From server',
-        description: listing.title,
-        photoAssets: listing.displayPhotos,
+        description: resolved.title,
+        photoAssets: resolved.displayPhotos,
       ),
     );
   }
