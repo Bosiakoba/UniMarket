@@ -20,7 +20,7 @@ When a user submits a seller application, the API enqueues a background AI revie
 1. Fetches the uploaded image through `GET /api/admin/verification-requests/{id}/id-document` (works for R2 and local `/media/...` uploads).
 2. Runs **Llama 3.2 Vision** (LLaVA fallback) with strict checks — must describe the image and show name/school on card.
 3. Compares profile **university** and **email domain** to the ID and campus email rules.
-4. Saves an AI summary for admin review only — **never auto-approves**.
+4. **Auto-rejects** when confidence is high (e.g. clear non-ID upload like an ad). **Auto-approves** only on high-confidence ID + email + name + university match. Otherwise leaves the request **Pending** for manual review.
 
 ## Prerequisites
 

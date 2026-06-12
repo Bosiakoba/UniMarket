@@ -191,7 +191,7 @@ function renderDetail(item: VerificationRequest): string {
     </section>
     <section class="card">
       <h2>AI assist</h2>
-      <p class="muted">Runs in the background after submit, or on demand below. AI never auto-approves.</p>
+      <p class="muted">Runs in the background after submit. High-confidence rejections are automatic; uncertain cases stay in the manual queue.</p>
       ${aiBlock}
       <form method="post" action="/requests/${escapeAttr(item.id)}/ai-review" style="margin-top:12px">
         <button class="ai" type="submit">Run Workers AI review</button>
@@ -231,11 +231,13 @@ function escapeAttr(value: string): string {
 
 interface AiReviewResult {
   summary: string;
-  recommendation: "approve" | "review";
+  recommendation: "approve" | "review" | "reject";
+  confidence: "high" | "low";
 }
 
 interface IdVisionAssessment {
   isStudentId: boolean;
+  confidence: "high" | "low";
   summary: string;
   whatImageShows: string | null;
   nameOnId: string | null;
@@ -265,7 +267,7 @@ interface EmailCampusCheck {
 }
 
 function tokenizeUniversity(value: string): string[] {
-  const stopWords = new Set(["the", "and", "of", "for", "at", "in"]);
+  const stopWords = new Set(["the", "of", "for", "at", "in"]);
   const words = value
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
@@ -273,8 +275,11 @@ function tokenizeUniversity(value: string): string[] {
     .filter((token) => token.length > 2 && !stopWords.has(token));
 
   const tokens = [...words];
-  const acronym = words
-    .filter((word) => word.length > 1)
+  const acronym = value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 0 && !stopWords.has(word))
     .map((word) => word[0])
     .join("");
   if (acronym.length >= 3) {
@@ -471,6 +476,7 @@ function finalizeVisionAssessment(
   if (incomplete) {
     return {
       isStudentId: false,
+      confidence: "low",
       whatImageShows: fields.whatImageShows,
       nameOnId: fields.nameOnId,
       universityOnId: fields.universityOnId,
@@ -479,7 +485,7 @@ function finalizeVisionAssessment(
       summary: [
         "Vision could not reliably classify the uploaded image.",
         fields.rawText || "No vision output.",
-        "Treat as NOT a verified student ID until an admin reviews the photo.",
+        "Manual admin review required.",
       ].join("\n"),
     };
   }
@@ -487,6 +493,7 @@ function finalizeVisionAssessment(
   if (visionLooksLikeNonStudentId(combined)) {
     return {
       isStudentId: false,
+      confidence: "high",
       whatImageShows: fields.whatImageShows,
       nameOnId: fields.nameOnId,
       universityOnId: fields.universityOnId,
@@ -552,8 +559,19 @@ function finalizeVisionAssessment(
           : "IS_STUDENT_ID: no",
       ].join("\n");
 
+  const confidence: "high" | "low" = isStudentId
+    ? nameMatchesProfile && universityMatchesProfile
+      ? "high"
+      : "low"
+    : !isMeaningfulIdField(fields.nameOnId) &&
+        !isMeaningfulIdField(fields.universityOnId) &&
+        !describesStudentId
+      ? "high"
+      : "low";
+
   return {
     isStudentId,
+    confidence,
     whatImageShows: fields.whatImageShows,
     nameOnId: fields.nameOnId,
     universityOnId: fields.universityOnId,
@@ -626,6 +644,7 @@ async function analyzeStudentIdImage(
   } catch {
     return {
       isStudentId: false,
+      confidence: "low",
       whatImageShows: null,
       summary: "Vision model could not analyze the uploaded image.",
       nameOnId: null,
@@ -636,37 +655,30 @@ async function analyzeStudentIdImage(
   }
 }
 
-function decideHeuristicRecommendation(
-  emailCheck: EmailCampusCheck,
-  vision: IdVisionAssessment,
-  idLoaded: boolean,
-): "approve" | "review" {
-  if (!idLoaded || !vision.isStudentId) return "review";
-  if (visionLooksLikeNonStudentId(vision.summary)) return "review";
-
-  const identityStrong =
-    vision.nameMatchesProfile && vision.universityMatchesProfile;
-  const campusEmailStrong =
-    emailCheck.isCampusDomain && emailCheck.domainMatchesUniversity;
-
-  if (identityStrong && campusEmailStrong) return "approve";
-  return "review";
+function emailSupportsApproval(emailCheck: EmailCampusCheck): boolean {
+  return emailCheck.isCampusDomain && emailCheck.score >= 2;
 }
 
 function buildFallbackSummary(
   emailCheck: EmailCampusCheck,
   vision: IdVisionAssessment,
   idLoaded: boolean,
-  recommendation: "approve" | "review",
+  recommendation: AiReviewResult["recommendation"],
+  confidence: AiReviewResult["confidence"],
 ): string {
   const idSection = !idLoaded
     ? "Could not load the uploaded image from the API for analysis."
-    : !vision.isStudentId
-      ? `Uploaded image does not appear to be a student ID.\n${vision.summary}`
-      : vision.summary;
+    : vision.summary;
+
+  const actionLine =
+    recommendation === "reject"
+      ? "High confidence — application will be auto-rejected."
+      : recommendation === "approve"
+        ? "High confidence — application is eligible for auto-approval."
+        : "Low confidence — queued for manual admin review.";
 
   return [
-    "Automated seller application review (assist only — admin decides)",
+    "Automated seller application review",
     "",
     "**Email & campus**",
     emailCheck.summary,
@@ -674,10 +686,8 @@ function buildFallbackSummary(
     "**Uploaded document**",
     idSection,
     "",
-    `**Recommendation:** ${recommendation}`,
-    recommendation === "review"
-      ? "Queued for manual admin review."
-      : "Strong match — admin may approve quickly.",
+    `**Recommendation:** ${recommendation} (${confidence} confidence)`,
+    actionLine,
   ].join("\n");
 }
 
@@ -689,31 +699,53 @@ function synthesizeReview(
   if (!idLoaded) {
     return {
       recommendation: "review",
+      confidence: "low",
       summary: buildFallbackSummary(
         emailCheck,
         vision,
         idLoaded,
         "review",
+        "low",
       ),
     };
   }
 
-  if (!vision.isStudentId || visionLooksLikeNonStudentId(vision.summary)) {
+  if (!vision.isStudentId) {
+    const recommendation: AiReviewResult["recommendation"] =
+      vision.confidence === "high" ? "reject" : "review";
     return {
-      recommendation: "review",
+      recommendation,
+      confidence: vision.confidence,
       summary: buildFallbackSummary(
         emailCheck,
         vision,
         idLoaded,
-        "review",
+        recommendation,
+        vision.confidence,
       ),
     };
   }
 
-  const heuristic = decideHeuristicRecommendation(emailCheck, vision, idLoaded);
+  const canAutoApprove =
+    vision.confidence === "high" &&
+    vision.nameMatchesProfile &&
+    vision.universityMatchesProfile &&
+    emailSupportsApproval(emailCheck);
+
+  const recommendation: AiReviewResult["recommendation"] = canAutoApprove
+    ? "approve"
+    : "review";
+
   return {
-    recommendation: heuristic,
-    summary: buildFallbackSummary(emailCheck, vision, idLoaded, heuristic),
+    recommendation,
+    confidence: canAutoApprove ? "high" : "low",
+    summary: buildFallbackSummary(
+      emailCheck,
+      vision,
+      idLoaded,
+      recommendation,
+      canAutoApprove ? "high" : "low",
+    ),
   };
 }
 
@@ -726,6 +758,7 @@ async function runAiReview(env: Env, item: VerificationRequest): Promise<AiRevie
 
   let vision: IdVisionAssessment = {
     isStudentId: false,
+    confidence: "high",
     summary: "No student ID image was attached.",
     whatImageShows: null,
     nameOnId: null,
@@ -743,6 +776,7 @@ async function runAiReview(env: Env, item: VerificationRequest): Promise<AiRevie
     } else {
       vision = {
         isStudentId: false,
+        confidence: "low",
         summary:
           "The API could not provide the uploaded image for vision review. Manual check required.",
         whatImageShows: null,
@@ -757,11 +791,26 @@ async function runAiReview(env: Env, item: VerificationRequest): Promise<AiRevie
   if (item.requestType !== "seller_application") {
     return {
       recommendation: "review",
+      confidence: "low",
       summary: [
         "Verified badge requests always require manual admin review.",
         emailCheck.summary,
         vision.summary,
       ].join("\n\n"),
+    };
+  }
+
+  if (!item.idDocumentUrl) {
+    return {
+      recommendation: "reject",
+      confidence: "high",
+      summary: buildFallbackSummary(
+        emailCheck,
+        vision,
+        idLoaded,
+        "reject",
+        "high",
+      ),
     };
   }
 
@@ -775,8 +824,49 @@ async function persistAiReview(
 ): Promise<void> {
   await apiFetch(env, `/api/admin/verification-requests/${item.id}/ai-review`, {
     method: "POST",
-    body: JSON.stringify(review),
+    body: JSON.stringify({
+      summary: review.summary,
+      recommendation: review.recommendation,
+    }),
   });
+}
+
+function autoRejectNotes(review: AiReviewResult): string {
+  const preview = review.summary.length > 600
+    ? `${review.summary.slice(0, 600)}...`
+    : review.summary;
+  return [
+    "Automatically rejected by AI review (high confidence).",
+    "Upload a clear photo of your university student ID card and submit again.",
+    "",
+    preview,
+  ].join("\n");
+}
+
+async function persistAiReviewAndAct(
+  env: Env,
+  item: VerificationRequest,
+  review: AiReviewResult,
+): Promise<void> {
+  await persistAiReview(env, item, review);
+
+  if (item.status !== "Pending" || item.requestType !== "seller_application") {
+    return;
+  }
+
+  if (review.recommendation === "reject" && review.confidence === "high") {
+    await apiFetch(env, `/api/admin/verification-requests/${item.id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ notes: autoRejectNotes(review) }),
+    });
+    return;
+  }
+
+  if (review.recommendation === "approve" && review.confidence === "high") {
+    await apiFetch(env, `/api/admin/verification-requests/${item.id}/approve`, {
+      method: "POST",
+    });
+  }
 }
 
 async function processRequestReview(
@@ -784,7 +874,7 @@ async function processRequestReview(
   item: VerificationRequest,
 ): Promise<AiReviewResult> {
   const review = await runAiReview(env, item);
-  await persistAiReview(env, item, review);
+  await persistAiReviewAndAct(env, item, review);
   return review;
 }
 
