@@ -95,6 +95,9 @@ Set on the API server (must match worker `ADMIN_API_KEY` secret):
 Admin__ApiKey=<same-key-as-worker-secret>
 Cloudflare__AiReviewUrl=https://unimarket-admin.unimarket93.workers.dev/api/ai-review
 
+Check `GET /health` on the API — `integrations.cloudflare.aiReview.configured` must be `true`.
+The worker also runs a cron every 2 minutes to review any pending seller apps still missing AI output.
+
 Seller applications require a **verified campus email** (4-digit OTP via Resend) before submit, then are AI-reviewed in the background.
 
 ```env

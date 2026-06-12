@@ -58,7 +58,10 @@ builder.Services.AddScoped<R2StorageService>();
 builder.Services.AddScoped<SaleConfirmationService>();
 builder.Services.AddScoped<FirebaseNotificationService>();
 builder.Services.AddScoped<NotificationService>();
-builder.Services.AddHttpClient<CloudflareAiReviewService>();
+builder.Services.AddHttpClient<CloudflareAiReviewService>(client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(3);
+});
 builder.Services.AddHttpClient<ResendEmailService>();
 builder.Services.AddScoped<CampusEmailOtpService>();
 builder.Services.AddSingleton<AiReviewBackgroundDispatcher>();
@@ -105,10 +108,12 @@ app.MapControllers();
 app.MapGet("/health", (
     IOptions<FirebaseSettings> firebase,
     IOptions<CloudflareSettings> cloudflare,
+    IOptions<AdminSettings> admin,
     IConfiguration configuration) =>
 {
     var fb = firebase.Value;
     var cf = cloudflare.Value;
+    var adminSettings = admin.Value;
     var dbPath = configuration.GetConnectionString("Default") ?? "Data Source=data/unimarket.db";
     return Results.Ok(new
     {
@@ -137,6 +142,15 @@ app.MapGet("/health", (
                     configured = cf.IsR2Configured,
                     localUploadFallback = cf.AllowLocalUploadFallback && !cf.IsR2Configured,
                 },
+                aiReview = new
+                {
+                    configured = cf.IsAiReviewConfigured && adminSettings.IsConfigured,
+                    url = string.IsNullOrWhiteSpace(cf.AiReviewUrl) ? null : cf.AiReviewUrl,
+                },
+            },
+            admin = new
+            {
+                configured = adminSettings.IsConfigured,
             },
         },
     });

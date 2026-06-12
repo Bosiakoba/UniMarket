@@ -2,6 +2,17 @@
 
 Cloudflare Worker dashboard for reviewing **seller applications** and **verified badge** requests. It proxies the UniMarket API admin queue and runs **Workers AI** vision review on student ID photos in the background when someone applies.
 
+## URLs
+
+| URL | Purpose |
+|-----|---------|
+| `https://unimarket-admin.unimarket93.workers.dev/` | **Admin dashboard** (open this in a browser) |
+| `POST /api/process-request` | API triggers background AI for one application (`{ requestId }`) |
+| `POST /api/ai-review` | Low-level AI only (returns summary JSON) |
+| `GET /api/ai-review` | Help message — not a page |
+
+Do **not** open `/api/ai-review` in the browser expecting a UI. Use `/` for the dashboard.
+
 ## Automated seller review
 
 When a user submits a seller application, the API enqueues a background AI review that:

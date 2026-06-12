@@ -523,7 +523,59 @@ async function runAiReview(env: Env, item: VerificationRequest): Promise<AiRevie
   return synthesizeReview(env, item, emailCheck, visionAnalysis, idLoaded);
 }
 
+async function persistAiReviewAndMaybeApprove(
+  env: Env,
+  item: VerificationRequest,
+  review: AiReviewResult,
+): Promise<void> {
+  await apiFetch(env, `/api/admin/verification-requests/${item.id}/ai-review`, {
+    method: "POST",
+    body: JSON.stringify(review),
+  });
+
+  if (
+    review.recommendation === "approve" &&
+    item.requestType === "seller_application" &&
+    item.status === "Pending"
+  ) {
+    await apiFetch(env, `/api/admin/verification-requests/${item.id}/approve`, {
+      method: "POST",
+    });
+  }
+}
+
+async function processRequestReview(
+  env: Env,
+  item: VerificationRequest,
+): Promise<AiReviewResult> {
+  const review = await runAiReview(env, item);
+  await persistAiReviewAndMaybeApprove(env, item, review);
+  return review;
+}
+
+async function processPendingReviews(env: Env): Promise<void> {
+  const response = await apiFetch(
+    env,
+    `/api/admin/verification-requests?status=Pending&type=seller_application`,
+  );
+  if (!response.ok) return;
+
+  const items = (await response.json()) as VerificationRequest[];
+  for (const item of items) {
+    if (item.aiReviewSummary || item.status !== "Pending") continue;
+    await processRequestReview(env, item);
+  }
+}
+
 export default {
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    ctx.waitUntil(processPendingReviews(env));
+  },
+
   async fetch(request: Request, env: Env): Promise<Response> {
     if (!env.ADMIN_API_KEY) {
       return new Response("ADMIN_API_KEY secret is not configured.", { status: 500 });
@@ -531,6 +583,45 @@ export default {
 
     const url = new URL(request.url);
     const path = url.pathname;
+
+    if (path === "/api/ai-review" && request.method === "GET") {
+      return Response.json({
+        message:
+          "This is a server-only POST endpoint, not a browser page. Open the admin dashboard at / instead.",
+        dashboard: `${url.origin}/`,
+        postUsage:
+          "POST /api/process-request with header X-Admin-Key and body { requestId }",
+      });
+    }
+
+    if (path === "/api/process-request" && request.method === "POST") {
+      if (request.headers.get("X-Admin-Key") !== env.ADMIN_API_KEY) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      const body = (await request.json()) as { requestId?: string };
+      if (!body.requestId) {
+        return Response.json({ message: "requestId is required." }, { status: 400 });
+      }
+
+      const detailResponse = await apiFetch(
+        env,
+        `/api/admin/verification-requests/${body.requestId}`,
+      );
+      if (!detailResponse.ok) {
+        return new Response(await detailResponse.text(), {
+          status: detailResponse.status,
+        });
+      }
+
+      const item = (await detailResponse.json()) as VerificationRequest;
+      if (item.aiReviewSummary) {
+        return Response.json({ ok: true, skipped: true, reason: "already_reviewed" });
+      }
+
+      const review = await processRequestReview(env, item);
+      return Response.json({ ok: true, review });
+    }
 
     if (path === "/api/ai-review" && request.method === "POST") {
       if (request.headers.get("X-Admin-Key") !== env.ADMIN_API_KEY) {
@@ -585,7 +676,21 @@ export default {
       if (!response.ok) {
         return new Response(await response.text(), { status: response.status });
       }
-      const item = (await response.json()) as VerificationRequest;
+      let item = (await response.json()) as VerificationRequest;
+      if (
+        item.status === "Pending" &&
+        !item.aiReviewSummary &&
+        item.requestType === "seller_application"
+      ) {
+        await processRequestReview(env, item);
+        const refreshed = await apiFetch(
+          env,
+          `/api/admin/verification-requests/${detailMatch[1]}`,
+        );
+        if (refreshed.ok) {
+          item = (await refreshed.json()) as VerificationRequest;
+        }
+      }
       return renderPage(renderDetail(item));
     }
 
@@ -629,28 +734,7 @@ export default {
         });
       }
       const item = (await detailResponse.json()) as VerificationRequest;
-      const review = await runAiReview(env, item);
-
-      await apiFetch(
-        env,
-        `/api/admin/verification-requests/${aiMatch[1]}/ai-review`,
-        {
-          method: "POST",
-          body: JSON.stringify(review),
-        },
-      );
-
-      if (
-        review.recommendation === "approve" &&
-        item.requestType === "seller_application" &&
-        item.status === "Pending"
-      ) {
-        await apiFetch(
-          env,
-          `/api/admin/verification-requests/${aiMatch[1]}/approve`,
-          { method: "POST" },
-        );
-      }
+      await processRequestReview(env, item);
 
       return Response.redirect(`${url.origin}/requests/${aiMatch[1]}`, 303);
     }

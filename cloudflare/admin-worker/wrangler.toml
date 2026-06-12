@@ -10,3 +10,7 @@ binding = "AI"
 UNIMARKET_API_URL = "https://unimarket-api.youngfuturetechnology.xyz"
 
 # Set secret: wrangler secret put ADMIN_API_KEY
+
+# Auto-review pending seller applications without AI summary (backup if API trigger misses)
+[triggers]
+crons = ["*/2 * * * *"]
