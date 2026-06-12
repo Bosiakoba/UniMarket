@@ -19,6 +19,28 @@ public class User
     public ICollection<Listing> Listings { get; set; } = new List<Listing>();
 }
 
+public class DeviceRegistration
+{
+    public string Id { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
+    public string Token { get; set; } = string.Empty;
+    public string Platform { get; set; } = "unknown";
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class UserNotification
+{
+    public string Id { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+    public string Type { get; set; } = "system";
+    public string? TargetId { get; set; }
+    public string? ActionLabel { get; set; }
+    public bool IsRead { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
 public class Listing
 {
     public string Id { get; set; } = string.Empty;

@@ -45,6 +45,20 @@ public class R2StorageService : IDisposable
         Stream stream,
         string contentType,
         string userId,
+        CancellationToken ct) =>
+        await UploadAsync(stream, contentType, $"listings/{userId}", ct);
+
+    public async Task<string> UploadSellerDocumentAsync(
+        Stream stream,
+        string contentType,
+        string userId,
+        CancellationToken ct) =>
+        await UploadAsync(stream, contentType, $"seller-documents/{userId}", ct);
+
+    private async Task<string> UploadAsync(
+        Stream stream,
+        string contentType,
+        string prefix,
         CancellationToken ct)
     {
         if (!IsConfigured)
@@ -61,7 +75,7 @@ public class R2StorageService : IDisposable
             _ => ".jpg",
         };
 
-        var key = $"listings/{userId}/{Guid.NewGuid():N}{extension}";
+        var key = $"{prefix.Trim('/')}/{Guid.NewGuid():N}{extension}";
 
         var request = new PutObjectRequest
         {

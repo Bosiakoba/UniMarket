@@ -9,7 +9,10 @@ namespace UniMarket.Api.Controllers;
 
 [ApiController]
 [Route("api/chats")]
-public class ChatsController(AppDbContext db, CurrentUserService currentUser) : ControllerBase
+public class ChatsController(
+    AppDbContext db,
+    CurrentUserService currentUser,
+    NotificationService notifications) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ChatDto>>> List(CancellationToken ct)
@@ -115,16 +118,33 @@ public class ChatsController(AppDbContext db, CurrentUserService currentUser) : 
             return BadRequest();
         }
 
-        db.Messages.Add(new Message
+        var message = new Message
         {
             Id = Guid.NewGuid().ToString("N")[..12],
             ChatId = chatId,
             SenderId = currentUser.UserId!,
             Content = request.Content.Trim(),
             MessageType = "text",
-        });
+        };
+
+        db.Messages.Add(message);
 
         await db.SaveChangesAsync(ct);
+
+        var recipientId = chat.BuyerId == currentUser.UserId
+            ? chat.SellerId
+            : chat.BuyerId;
+        var sender = await db.Users.FindAsync([currentUser.UserId!], ct);
+
+        await notifications.CreateAsync(
+            recipientId,
+            $"New message from {sender?.FullName ?? "UniMarket"}",
+            message.Content,
+            "message",
+            chat.Id,
+            "Reply",
+            ct);
+
         return Ok();
     }
 

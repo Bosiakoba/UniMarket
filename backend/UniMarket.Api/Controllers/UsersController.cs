@@ -12,7 +12,8 @@ namespace UniMarket.Api.Controllers;
 public class UsersController(
     AppDbContext db,
     CurrentUserService currentUser,
-    VerificationQueueService verificationQueue) : ControllerBase
+    VerificationQueueService verificationQueue,
+    CloudflareAiReviewService aiReview) : ControllerBase
 {
     [HttpGet("me")]
     public async Task<ActionResult<UserProfileDto>> GetMe(CancellationToken ct)
@@ -75,7 +76,12 @@ public class UsersController(
             return BadRequest(new { message = "Store name is required." });
         }
 
-        db.VerificationRequests.Add(new VerificationRequest
+        if (string.IsNullOrWhiteSpace(request.IdDocumentUrl))
+        {
+            return BadRequest(new { message = "Upload your student ID before applying." });
+        }
+
+        var verificationRequest = new VerificationRequest
         {
             Id = Guid.NewGuid().ToString("N"),
             UserId = user.Id,
@@ -83,9 +89,12 @@ public class UsersController(
             Status = "Pending",
             StoreName = storeName,
             IdDocumentUrl = request.IdDocumentUrl?.Trim(),
-        });
+        };
+
+        db.VerificationRequests.Add(verificationRequest);
 
         await db.SaveChangesAsync(ct);
+        await aiReview.TryReviewAsync(verificationRequest.Id, ct);
         return Ok(new { status = "Pending", requestType = VerificationQueueService.TypeSellerApplication });
     }
 
@@ -123,15 +132,18 @@ public class UsersController(
             return BadRequest(new { message = "Need at least 3 active listings." });
         }
 
-        db.VerificationRequests.Add(new VerificationRequest
+        var verificationRequest = new VerificationRequest
         {
             Id = Guid.NewGuid().ToString("N"),
             UserId = user.Id,
             RequestType = VerificationQueueService.TypeVerifiedBadge,
             Status = "Pending",
-        });
+        };
+
+        db.VerificationRequests.Add(verificationRequest);
 
         await db.SaveChangesAsync(ct);
+        await aiReview.TryReviewAsync(verificationRequest.Id, ct);
         return Ok(new { status = "Pending", requestType = VerificationQueueService.TypeVerifiedBadge });
     }
 
@@ -152,6 +164,7 @@ public class UsersController(
         return UserProfileMapper.ToDto(
             user,
             statuses.SellerApplication,
-            statuses.VerificationBadge);
+            statuses.VerificationBadge,
+            statuses.StoreName);
     }
 }

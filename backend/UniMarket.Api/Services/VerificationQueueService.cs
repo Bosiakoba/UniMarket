@@ -5,7 +5,7 @@ using UniMarket.Api.Models;
 
 namespace UniMarket.Api.Services;
 
-public class VerificationQueueService(AppDbContext db)
+public class VerificationQueueService(AppDbContext db, NotificationService notifications)
 {
     public const string TypeSellerApplication = "seller_application";
     public const string TypeVerifiedBadge = "verified_badge";
@@ -25,16 +25,16 @@ public class VerificationQueueService(AppDbContext db)
             .OrderByDescending(r => r.SubmittedAt)
             .FirstOrDefaultAsync(ct);
 
-    public async Task<(string SellerApplication, string VerificationBadge)> ResolveUserStatusesAsync(
-        User user,
-        CancellationToken ct)
+    public async Task<(string SellerApplication, string VerificationBadge, string? StoreName)>
+        ResolveUserStatusesAsync(User user, CancellationToken ct)
     {
         var sellerRequest = await GetLatestAsync(user.Id, TypeSellerApplication, ct);
         var badgeRequest = await GetLatestAsync(user.Id, TypeVerifiedBadge, ct);
 
         return (
             ResolveSellerApplicationStatus(user, sellerRequest),
-            ResolveBadgeStatus(user, badgeRequest));
+            ResolveBadgeStatus(user, badgeRequest),
+            sellerRequest?.StoreName);
     }
 
     public static string ResolveSellerApplicationStatus(User user, VerificationRequest? request) =>
@@ -125,6 +125,30 @@ public class VerificationQueueService(AppDbContext db)
         row.Status = "Approved";
         row.ProcessedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+
+        if (row.RequestType == TypeSellerApplication)
+        {
+            await notifications.CreateAsync(
+                user.Id,
+                "Seller application approved",
+                "You can now post listings on UniMarket.",
+                "sellerApplication",
+                row.Id,
+                "Start selling",
+                ct);
+        }
+        else if (row.RequestType == TypeVerifiedBadge)
+        {
+            await notifications.CreateAsync(
+                user.Id,
+                "Verified badge approved",
+                "Your seller profile now shows the verified badge.",
+                "verification",
+                "verified",
+                "View badge",
+                ct);
+        }
+
         return ToDto(row);
     }
 
@@ -146,7 +170,23 @@ public class VerificationQueueService(AppDbContext db)
         row.Status = "Rejected";
         row.AdminNotes = string.IsNullOrWhiteSpace(notes) ? row.AdminNotes : notes.Trim();
         row.ProcessedAt = DateTime.UtcNow;
+        var user = row.User ?? await db.Users.FindAsync([row.UserId], ct);
         await db.SaveChangesAsync(ct);
+
+        if (user is not null)
+        {
+            await notifications.CreateAsync(
+                user.Id,
+                row.RequestType == TypeSellerApplication
+                    ? "Seller application needs changes"
+                    : "Verification request needs changes",
+                row.AdminNotes ?? "Review the requirements and submit again when ready.",
+                row.RequestType == TypeSellerApplication ? "sellerApplication" : "verification",
+                row.Id,
+                "Review",
+                ct);
+        }
+
         return ToDto(row);
     }
 

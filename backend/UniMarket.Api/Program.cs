@@ -34,6 +34,9 @@ builder.Services.AddScoped<UserProvisioningService>();
 builder.Services.AddScoped<VerificationQueueService>();
 builder.Services.AddScoped<R2StorageService>();
 builder.Services.AddScoped<SaleConfirmationService>();
+builder.Services.AddScoped<FirebaseNotificationService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddHttpClient<CloudflareAiReviewService>();
 
 builder.Services.AddCors(options =>
 {

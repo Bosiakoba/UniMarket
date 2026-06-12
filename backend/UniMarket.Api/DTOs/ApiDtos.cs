@@ -18,6 +18,7 @@ public record UserProfileDto(
     IReadOnlyList<string> InterestCategories,
     string SellerApplicationStatus,
     string VerificationBadgeStatus,
+    string? StoreName,
     DateTime CreatedAt);
 
 public record VerificationRequestDto(
@@ -71,6 +72,7 @@ public record ListingDto(
     IReadOnlyDictionary<string, string> Attributes,
     double DistanceKm,
     string SellerName,
+    string SellerUserId,
     bool IsVerified,
     double Rating,
     int ReviewCount,
@@ -78,6 +80,21 @@ public record ListingDto(
     DateTime CreatedAt);
 
 public record UploadPhotoResponse(string Url);
+
+public record NotificationDto(
+    string Id,
+    string Title,
+    string Body,
+    string Type,
+    string? TargetId,
+    string? ActionLabel,
+    bool IsRead,
+    DateTime CreatedAt,
+    string TimeLabel);
+
+public record RegisterFcmTokenRequest(string Token, string? Platform);
+
+public record WorkerAiReviewResponse(string Summary, string? Recommendation);
 
 public record CreateListingRequest(
     string Title,

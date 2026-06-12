@@ -71,6 +71,7 @@ public class AuthController(
         return Ok(UserProfileMapper.ToDto(
             user,
             statuses.SellerApplication,
-            statuses.VerificationBadge));
+            statuses.VerificationBadge,
+            statuses.StoreName));
     }
 }

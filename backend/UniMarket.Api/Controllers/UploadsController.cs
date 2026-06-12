@@ -24,6 +24,20 @@ public class UploadsController(
     [RequestSizeLimit(12 * 1024 * 1024)]
     public async Task<ActionResult<UploadPhotoResponse>> UploadListingPhoto(
         IFormFile file,
+        CancellationToken ct) =>
+        await UploadImageAsync(file, "Photo", storage.UploadListingPhotoAsync, ct);
+
+    [HttpPost("seller-documents")]
+    [RequestSizeLimit(12 * 1024 * 1024)]
+    public async Task<ActionResult<UploadPhotoResponse>> UploadSellerDocument(
+        IFormFile file,
+        CancellationToken ct) =>
+        await UploadImageAsync(file, "Student ID", storage.UploadSellerDocumentAsync, ct);
+
+    private async Task<ActionResult<UploadPhotoResponse>> UploadImageAsync(
+        IFormFile file,
+        string label,
+        Func<Stream, string, string, CancellationToken, Task<string>> upload,
         CancellationToken ct)
     {
         if (!currentUser.IsAuthenticated) return Unauthorized();
@@ -35,12 +49,12 @@ public class UploadsController(
 
         if (file.Length == 0)
         {
-            return BadRequest(new { message = "Choose a photo to upload." });
+            return BadRequest(new { message = $"Choose a {label.ToLowerInvariant()} image to upload." });
         }
 
         if (file.Length > 10 * 1024 * 1024)
         {
-            return BadRequest(new { message = "Photo must be 10 MB or smaller." });
+            return BadRequest(new { message = $"{label} must be 10 MB or smaller." });
         }
 
         var contentType = string.IsNullOrWhiteSpace(file.ContentType)
@@ -53,7 +67,7 @@ public class UploadsController(
         }
 
         await using var stream = file.OpenReadStream();
-        var url = await storage.UploadListingPhotoAsync(
+        var url = await upload(
             stream,
             contentType,
             currentUser.UserId!,

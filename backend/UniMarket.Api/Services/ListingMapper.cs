@@ -21,7 +21,7 @@ public class ListingMapper(AppDbContext db)
             .ToListAsync(ct);
 
         var rating = reviews.Count == 0
-            ? 4.8
+            ? 0
             : reviews.Average(r => r.Score);
 
         var photos = listing.Images
@@ -53,6 +53,7 @@ public class ListingMapper(AppDbContext db)
             DeserializeAttributes(listing.AttributesJson),
             listing.DistanceKm,
             owner?.FullName ?? "Campus seller",
+            listing.UserId,
             owner?.IsVerified ?? false,
             Math.Round(rating, 1),
             reviews.Count,

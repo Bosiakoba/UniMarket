@@ -16,6 +16,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<SaleRecord> SaleRecords => Set<SaleRecord>();
     public DbSet<SaleConfirmation> SaleConfirmations => Set<SaleConfirmation>();
+    public DbSet<DeviceRegistration> DeviceRegistrations => Set<DeviceRegistration>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,5 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany()
             .HasForeignKey(r => r.UserId);
         modelBuilder.Entity<WishlistItem>().HasKey(w => new { w.UserId, w.ListingId });
+        modelBuilder.Entity<DeviceRegistration>().HasIndex(d => d.Token).IsUnique();
+        modelBuilder.Entity<UserNotification>().HasIndex(n => new { n.UserId, n.CreatedAt });
     }
 }

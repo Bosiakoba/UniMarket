@@ -8,7 +8,8 @@ public static class UserProfileMapper
     public static UserProfileDto ToDto(
         User user,
         string sellerApplicationStatus,
-        string verificationBadgeStatus) =>
+        string verificationBadgeStatus,
+        string? storeName = null) =>
         new(
             user.Id,
             user.FirebaseUid,
@@ -25,6 +26,7 @@ public static class UserProfileMapper
             ParseCategories(user.InterestCategoriesJson),
             sellerApplicationStatus,
             verificationBadgeStatus,
+            storeName,
             user.CreatedAt);
 
     public static IReadOnlyList<string> ParseCategories(string? json)

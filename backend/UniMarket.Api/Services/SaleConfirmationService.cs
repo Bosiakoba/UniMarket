@@ -4,7 +4,7 @@ using UniMarket.Api.Models;
 
 namespace UniMarket.Api.Services;
 
-public class SaleConfirmationService(AppDbContext db)
+public class SaleConfirmationService(AppDbContext db, NotificationService notifications)
 {
     public const string SystemSenderId = "unimarket-system";
     public const string MessageTypeSaleConfirmation = "sale_confirmation";
@@ -22,6 +22,7 @@ public class SaleConfirmationService(AppDbContext db)
             ? $"The seller recorded a completed job for \"{listing.Title}\". Did you hire them for this?"
             : $"The seller recorded a sale for \"{listing.Title}\". Did you buy this item?";
 
+        var notificationTargets = new List<(string BuyerId, string ChatId)>();
         foreach (var chat in chats)
         {
             db.SaleConfirmations.Add(new SaleConfirmation
@@ -45,9 +46,23 @@ public class SaleConfirmationService(AppDbContext db)
                 ConfirmationStatus = "pending",
                 SentAt = DateTime.UtcNow,
             });
+
+            notificationTargets.Add((chat.BuyerId, chat.Id));
         }
 
         await db.SaveChangesAsync(ct);
+
+        foreach (var target in notificationTargets)
+        {
+            await notifications.CreateAsync(
+                target.BuyerId,
+                "Confirm this sale",
+                prompt,
+                "message",
+                target.ChatId,
+                "Open chat",
+                ct);
+        }
     }
 
     public async Task<(bool Success, string? Error)> RespondAsync(
@@ -111,6 +126,16 @@ public class SaleConfirmationService(AppDbContext db)
                 db.Messages.Add(BuildSystemMessage(
                     confirmation.ChatId,
                     "Thanks — your purchase is confirmed."));
+                await db.SaveChangesAsync(ct);
+                await notifications.CreateAsync(
+                    sale.SellerId,
+                    "Sale confirmed",
+                    $"A buyer confirmed \"{sale.Listing?.Title ?? "your listing"}\".",
+                    "listing",
+                    sale.ListingId,
+                    "View listing",
+                    ct);
+                return (true, null);
             }
         }
         else
