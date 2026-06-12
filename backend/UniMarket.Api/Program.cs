@@ -33,6 +33,7 @@ if (useD1Primary)
     builder.Services.AddSingleton<D1Client>();
     builder.Services.AddSingleton<D1EntitySqlBuilder>();
     builder.Services.AddSingleton<D1SchemaInitializer>();
+    builder.Services.AddSingleton<D1SchemaPatcher>();
     builder.Services.AddSingleton<D1SaveChangesInterceptor>();
 
     var sqliteConnection = new SqliteConnection("Data Source=:memory:;Cache=Shared");
@@ -130,6 +131,8 @@ using (var scope = app.Services.CreateScope())
     {
         var d1Initializer = scope.ServiceProvider.GetRequiredService<D1SchemaInitializer>();
         await d1Initializer.EnsureSchemaAsync();
+        var d1Patcher = scope.ServiceProvider.GetRequiredService<D1SchemaPatcher>();
+        await d1Patcher.ApplyAsync();
     }
 
     if (useD1Primary)

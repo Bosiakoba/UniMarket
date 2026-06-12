@@ -119,6 +119,12 @@ CREATE TABLE IF NOT EXISTS VerificationRequests (
 CREATE INDEX IF NOT EXISTS IX_VerificationRequests_UserId ON VerificationRequests(UserId);
 CREATE INDEX IF NOT EXISTS IX_VerificationRequests_Status ON VerificationRequests(Status);
 
+-- Migrations for databases created before these columns existed:
+-- ALTER TABLE Users ADD COLUMN VerifiedStudentEmail TEXT;
+-- ALTER TABLE Users ADD COLUMN VerifiedStudentEmailAt TEXT;
+-- ALTER TABLE VerificationRequests ADD COLUMN StudentEmail TEXT;
+-- (Applied automatically on API startup via D1SchemaPatcher.)
+
 CREATE TABLE IF NOT EXISTS ListingReviews (
   Id TEXT PRIMARY KEY NOT NULL,
   ListingId TEXT NOT NULL,
