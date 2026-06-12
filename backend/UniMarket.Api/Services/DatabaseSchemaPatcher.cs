@@ -46,6 +46,18 @@ public static class DatabaseSchemaPatcher
             column: "StudentEmail",
             alterSql: "ALTER TABLE VerificationRequests ADD COLUMN StudentEmail TEXT NULL;",
             ct);
+        await EnsureColumnAsync(
+            db,
+            table: "Chats",
+            column: "BuyerLastReadAt",
+            alterSql: "ALTER TABLE Chats ADD COLUMN BuyerLastReadAt TEXT NULL;",
+            ct);
+        await EnsureColumnAsync(
+            db,
+            table: "Chats",
+            column: "SellerLastReadAt",
+            alterSql: "ALTER TABLE Chats ADD COLUMN SellerLastReadAt TEXT NULL;",
+            ct);
     }
 
     private static async Task EnsureColumnAsync(
@@ -76,6 +88,9 @@ public static class DatabaseSchemaPatcher
                 .ToListAsync(ct),
             "VerificationRequests" => await db.Database
                 .SqlQueryRaw<ColumnInfo>("PRAGMA table_info(VerificationRequests)")
+                .ToListAsync(ct),
+            "Chats" => await db.Database
+                .SqlQueryRaw<ColumnInfo>("PRAGMA table_info(Chats)")
                 .ToListAsync(ct),
             _ => throw new InvalidOperationException($"Unsupported schema table: {table}"),
         };

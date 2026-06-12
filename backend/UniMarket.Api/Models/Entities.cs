@@ -86,6 +86,8 @@ public class Chat
     public string BuyerId { get; set; } = string.Empty;
     public string SellerId { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? BuyerLastReadAt { get; set; }
+    public DateTime? SellerLastReadAt { get; set; }
     public ICollection<Message> Messages { get; set; } = new List<Message>();
 }
 

@@ -14,10 +14,12 @@ class MessageBubble extends StatefulWidget {
     super.key,
     required this.message,
     required this.threadId,
+    this.viewerIsBuyer = true,
   });
 
   final ChatMessage message;
   final String threadId;
+  final bool viewerIsBuyer;
 
   @override
   State<MessageBubble> createState() => _MessageBubbleState();
@@ -55,6 +57,7 @@ class _MessageBubbleState extends State<MessageBubble> {
     if (message.isSaleConfirmation) {
       return SaleConfirmationBubble(
         message: message,
+        viewerIsBuyer: widget.viewerIsBuyer,
         isResponding: _isResponding,
         onConfirm: () => _respond(true),
         onDeny: () => _respond(false),

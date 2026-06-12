@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../api/media_url.dart';
 import '../models/post_listing_draft.dart';
 import '../theme/app_colors.dart';
 import 'skeleton_loaders.dart';
@@ -56,7 +57,7 @@ class ListingImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trimmed = source.trim();
+    final trimmed = MediaUrlResolver.resolve(source);
     if (trimmed.isEmpty) {
       return _wrap(_placeholder());
     }

@@ -164,6 +164,7 @@ public record ChatDto(
     string? ListingTitle,
     string? ListingImageUrl,
     decimal? ListingPrice,
+    bool IsBuyer,
     bool Unread,
     DateTime CreatedAt);
 

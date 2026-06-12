@@ -225,10 +225,6 @@ public class ListingsController(
 
         switch (availability)
         {
-            case "ongoing":
-                listing.UnitsSold += units;
-                listing.Status = "active";
-                break;
             case "stock":
                 if (listing.QuantityAvailable is null or <= 0)
                 {
@@ -240,27 +236,12 @@ public class ListingsController(
                     return BadRequest(
                         $"Only {listing.QuantityAvailable} unit(s) remain in stock.");
                 }
-
-                listing.QuantityAvailable -= units;
-                listing.UnitsSold += units;
-                if (listing.QuantityAvailable <= 0)
-                {
-                    listing.QuantityAvailable = 0;
-                    listing.Status = "sold_out";
-                }
-                else
-                {
-                    listing.Status = "active";
-                }
                 break;
-            default:
+            case "unique":
                 if (units != 1)
                 {
                     return BadRequest("Unique listings can only record one sale at a time.");
                 }
-
-                listing.UnitsSold = 1;
-                listing.Status = "sold";
                 break;
         }
 

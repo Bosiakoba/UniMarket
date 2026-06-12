@@ -18,9 +18,12 @@ public class SaleConfirmationService(AppDbContext db, NotificationService notifi
 
         if (chats.Count == 0) return;
 
-        var prompt = listing.AvailabilityType == "ongoing"
+        var buyerPrompt = listing.AvailabilityType == "ongoing"
             ? $"The seller recorded a completed job for \"{listing.Title}\". Did you hire them for this?"
             : $"The seller recorded a sale for \"{listing.Title}\". Did you buy this item?";
+
+        var sellerNotice =
+            $"You recorded a sale for \"{listing.Title}\". We're asking the buyer to confirm.";
 
         var notificationTargets = new List<(string BuyerId, string ChatId)>();
         foreach (var chat in chats)
@@ -40,12 +43,14 @@ public class SaleConfirmationService(AppDbContext db, NotificationService notifi
                 Id = Guid.NewGuid().ToString("N")[..12],
                 ChatId = chat.Id,
                 SenderId = SystemSenderId,
-                Content = prompt,
+                Content = buyerPrompt,
                 MessageType = MessageTypeSaleConfirmation,
                 SaleId = sale.Id,
                 ConfirmationStatus = "pending",
                 SentAt = DateTime.UtcNow,
             });
+
+            db.Messages.Add(BuildSystemMessage(chat.Id, sellerNotice));
 
             notificationTargets.Add((chat.BuyerId, chat.Id));
         }
@@ -57,7 +62,7 @@ public class SaleConfirmationService(AppDbContext db, NotificationService notifi
             await notifications.CreateAsync(
                 target.BuyerId,
                 "Confirm this sale",
-                prompt,
+                buyerPrompt,
                 "message",
                 target.ChatId,
                 "Open chat",
@@ -123,6 +128,7 @@ public class SaleConfirmationService(AppDbContext db, NotificationService notifi
                 sale.Status = "buyer_confirmed";
                 sale.BuyerId = buyerUserId;
                 sale.ConfirmedAt = DateTime.UtcNow;
+                await ApplyConfirmedSaleAsync(sale, ct);
                 db.Messages.Add(BuildSystemMessage(
                     confirmation.ChatId,
                     "Thanks — your purchase is confirmed."));
@@ -157,6 +163,35 @@ public class SaleConfirmationService(AppDbContext db, NotificationService notifi
 
         await db.SaveChangesAsync(ct);
         return (true, null);
+    }
+
+    private async Task ApplyConfirmedSaleAsync(SaleRecord sale, CancellationToken ct)
+    {
+        var listing = sale.Listing
+            ?? await db.Listings.FindAsync([sale.ListingId], ct);
+        if (listing is null)
+        {
+            return;
+        }
+
+        var units = Math.Max(1, sale.Units);
+        switch (listing.AvailabilityType)
+        {
+            case "ongoing":
+                listing.UnitsSold += units;
+                listing.Status = "active";
+                break;
+            case "stock":
+                var remaining = listing.QuantityAvailable ?? 0;
+                listing.QuantityAvailable = Math.Max(0, remaining - units);
+                listing.UnitsSold += units;
+                listing.Status = listing.QuantityAvailable <= 0 ? "sold_out" : "active";
+                break;
+            default:
+                listing.UnitsSold = 1;
+                listing.Status = "sold";
+                break;
+        }
     }
 
     private static Message BuildSystemMessage(string chatId, string content) =>

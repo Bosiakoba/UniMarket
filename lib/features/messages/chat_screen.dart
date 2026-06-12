@@ -34,7 +34,10 @@ class _ChatScreenState extends State<ChatScreen> {
       final store = MessageStoreScope.of(context);
       final client = ApiClientScope.of(context);
       final userId = UserSessionScope.of(context).currentUser?.id;
-      store.markRead(widget.threadId);
+      store.markRead(
+        widget.threadId,
+        client: ApiClientScope.of(context),
+      );
       await store.refreshThreadMessages(
         threadId: widget.threadId,
         client: client,
@@ -167,6 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: MessageBubble(
                     message: thread.messages[index],
                     threadId: widget.threadId,
+                    viewerIsBuyer: thread.isCurrentUserBuyer,
                   ),
                 );
               },

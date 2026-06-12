@@ -142,9 +142,22 @@ class MessageStore extends ChangeNotifier {
           ),
         ),
       );
-    thread.unread = thread.messages.any(
-      (m) => m.canRespondToSale,
-    );
+    notifyListeners();
+  }
+
+  Future<void> markRead(
+    String threadId, {
+    ApiClient? client,
+  }) async {
+    final thread = threadById(threadId);
+    if (thread == null) return;
+
+    thread.unread = false;
+    if (client != null && isLiveSession(client)) {
+      try {
+        await client.markChatRead(chatId: threadId);
+      } catch (_) {}
+    }
     notifyListeners();
   }
 
@@ -191,6 +204,7 @@ class MessageStore extends ChangeNotifier {
     if (matching.isEmpty) return;
 
     for (final thread in matching) {
+      if (!thread.isCurrentUserBuyer) continue;
       thread.messages.add(
         ChatMessage(
           id: 'sale-$saleId-${thread.id}',
@@ -285,6 +299,7 @@ class MessageStore extends ChangeNotifier {
                 'Seller',
             listingId: chatJson['listingId'] as String?,
             unread: chatJson['unread'] as bool? ?? false,
+            isCurrentUserBuyer: chatJson['isBuyer'] as bool? ?? true,
             messages: messages,
           ),
         );
@@ -294,13 +309,6 @@ class MessageStore extends ChangeNotifier {
       _threads.clear();
       notifyListeners();
     }
-  }
-
-  void markRead(String threadId) {
-    final thread = threadById(threadId);
-    if (thread == null || !thread.unread) return;
-    thread.unread = false;
-    notifyListeners();
   }
 
   Future<String?> sendMessage({
@@ -320,11 +328,13 @@ class MessageStore extends ChangeNotifier {
       thread.attachedListing = null;
     }
 
-    if (client != null && isLiveSession(client) && trimmed.isNotEmpty) {
+    if (client != null &&
+        isLiveSession(client) &&
+        (trimmed.isNotEmpty || listing != null)) {
       try {
         await client.sendChatMessage(
           chatId: threadId,
-          content: trimmed,
+          content: trimmed.isEmpty ? 'Shared a listing inquiry' : trimmed,
           listingId: listing?.canonicalId,
         );
         await refreshThreadMessages(

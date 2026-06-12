@@ -66,7 +66,9 @@ CREATE TABLE IF NOT EXISTS Chats (
   ListingId TEXT NOT NULL,
   BuyerId TEXT NOT NULL,
   SellerId TEXT NOT NULL,
-  CreatedAt TEXT NOT NULL
+  CreatedAt TEXT NOT NULL,
+  BuyerLastReadAt TEXT,
+  SellerLastReadAt TEXT
 );
 
 CREATE INDEX IF NOT EXISTS IX_Chats_BuyerId ON Chats(BuyerId);

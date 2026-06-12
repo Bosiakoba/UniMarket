@@ -101,6 +101,13 @@ class PushNotificationService {
         await messageStore.syncFromApi(client, userId: user.id);
       }
 
+      if (sellerStore != null &&
+          sessionStore != null &&
+          user != null &&
+          type == 'listing') {
+        await sellerStore.syncFromApi(client, user: user);
+      }
+
       await notificationStore.syncFromApi(client);
     } catch (_) {
       // Foreground push already updated the inbox locally.

@@ -10,6 +10,7 @@ class MessageThread {
     this.unread = false,
     this.listingId,
     this.buyerName,
+    this.isCurrentUserBuyer = true,
   });
 
   final String id;
@@ -17,6 +18,7 @@ class MessageThread {
   final List<ChatMessage> messages;
   final String? listingId;
   final String? buyerName;
+  final bool isCurrentUserBuyer;
   ListingItem? attachedListing;
   bool unread;
 
@@ -32,7 +34,23 @@ class MessageThread {
     }
     final last = messages.last;
     if (last.isSaleConfirmation) {
-      return 'Confirm your purchase';
+      if (last.canRespondToSale) return 'Confirm your purchase';
+      if (last.confirmationStatus == 'pending') {
+        return isCurrentUserBuyer
+            ? 'Confirm your purchase'
+            : 'Awaiting buyer confirmation';
+      }
+      if (last.confirmationStatus == 'confirmed') {
+        return isCurrentUserBuyer
+            ? 'You confirmed this purchase'
+            : 'Buyer confirmed purchase';
+      }
+      if (last.confirmationStatus == 'denied') {
+        return isCurrentUserBuyer
+            ? 'You declined this purchase'
+            : 'Buyer declined purchase';
+      }
+      return 'Purchase check';
     }
     if (last.isSystemText) {
       return last.text;

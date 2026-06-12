@@ -11,6 +11,7 @@ import '../models/listing_item.dart';
 import '../models/record_sale_result.dart';
 import '../models/listing_review.dart';
 import '../config/api_config.dart';
+import 'media_url.dart';
 
 class ApiException implements Exception {
   ApiException(this.message, {this.statusCode});
@@ -510,6 +511,19 @@ class ApiClient {
     await respondToSale(saleId: saleId, confirmed: true);
   }
 
+  Future<void> markChatRead({required String chatId}) async {
+    final response = await http.post(
+      _uri('/api/chats/$chatId/read'),
+      headers: _headers,
+    );
+    if (response.statusCode >= 400) {
+      throw ApiException(
+        'Could not mark chat as read',
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
   Future<void> sendChatMessage({
     required String chatId,
     required String content,
@@ -637,15 +651,15 @@ class ApiClient {
     ListingItem? listingAttachment;
     final inquiryListingId = json['listingId'] as String?;
     if (inquiryListingId != null && inquiryListingId.isNotEmpty) {
+      final imageUrl = MediaUrlResolver.resolve(
+        json['listingImageUrl'] as String?,
+      );
       listingAttachment = ListingItem(
         id: inquiryListingId,
         title: json['listingTitle'] as String? ?? 'Listing',
         price: (json['listingPrice'] as num?)?.toDouble() ?? 0,
-        imageAsset: json['listingImageUrl'] as String? ?? '',
-        photoUrls: [
-          if ((json['listingImageUrl'] as String?)?.isNotEmpty ?? false)
-            json['listingImageUrl'] as String,
-        ],
+        imageAsset: imageUrl,
+        photoUrls: imageUrl.isNotEmpty ? [imageUrl] : const [],
         sellerName: 'Seller',
         isVerified: false,
         distanceKm: 0,
@@ -731,7 +745,7 @@ abstract final class ListingMapper {
   }
 
   static ListingItem fromJson(Map<String, dynamic> json) {
-    final photos = photoUrlsFromJson(json);
+    final photos = MediaUrlResolver.resolveAll(photoUrlsFromJson(json));
     final image = photos.isNotEmpty ? photos.first : '';
 
     return ListingItem(

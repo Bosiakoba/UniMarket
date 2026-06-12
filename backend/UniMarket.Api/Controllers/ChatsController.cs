@@ -15,6 +15,12 @@ public class ChatsController(
     CurrentUserService currentUser,
     NotificationService notifications) : ControllerBase
 {
+    private static readonly JsonSerializerOptions InquiryJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+    };
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ChatDto>>> List(CancellationToken ct)
     {
@@ -60,6 +66,32 @@ public class ChatsController(
         return Ok(dtos);
     }
 
+    [HttpPost("{chatId}/read")]
+    public async Task<IActionResult> MarkRead(string chatId, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return Unauthorized();
+
+        var chat = await db.Chats.FindAsync([chatId], ct);
+        if (chat is null) return NotFound();
+        if (chat.BuyerId != currentUser.UserId && chat.SellerId != currentUser.UserId)
+        {
+            return Forbid();
+        }
+
+        var now = DateTime.UtcNow;
+        if (chat.BuyerId == currentUser.UserId)
+        {
+            chat.BuyerLastReadAt = now;
+        }
+        else
+        {
+            chat.SellerLastReadAt = now;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Ok();
+    }
+
     [HttpPost]
     public async Task<ActionResult<ChatDto>> Open(
         [FromQuery] string listingId,
@@ -95,6 +127,7 @@ public class ChatsController(
         };
 
         db.Chats.Add(chat);
+        await EnsureListingInquiryMessageAsync(chat.Id, listingId, ct);
         await db.SaveChangesAsync(ct);
         return Ok(await ToDto(chat, ct));
     }
@@ -114,27 +147,32 @@ public class ChatsController(
             return Forbid();
         }
 
-        if (string.IsNullOrWhiteSpace(request.Content))
+        var hasContent = !string.IsNullOrWhiteSpace(request.Content);
+        var hasListing = !string.IsNullOrWhiteSpace(request.ListingId);
+        if (!hasContent && !hasListing)
         {
             return BadRequest();
         }
 
-        if (!string.IsNullOrWhiteSpace(request.ListingId))
+        if (hasListing)
         {
-            await EnsureListingInquiryMessageAsync(chatId, request.ListingId.Trim(), ct);
+            await EnsureListingInquiryMessageAsync(chatId, request.ListingId!.Trim(), ct);
         }
+
+        var content = hasContent
+            ? request.Content.Trim()
+            : "Shared a listing inquiry";
 
         var message = new Message
         {
             Id = Guid.NewGuid().ToString("N")[..12],
             ChatId = chatId,
             SenderId = currentUser.UserId!,
-            Content = request.Content.Trim(),
+            Content = content,
             MessageType = "text",
         };
 
         db.Messages.Add(message);
-
         await db.SaveChangesAsync(ct);
 
         var recipientId = chat.BuyerId == currentUser.UserId
@@ -170,12 +208,8 @@ public class ChatsController(
         var otherParty = await db.Users.FindAsync([otherUserId], ct);
 
         var image = listing?.Images.OrderBy(i => i.SortOrder).FirstOrDefault()?.ImageUrl;
-        var hasUnread = await db.Messages.AnyAsync(
-            m => m.ChatId == chat.Id &&
-                 m.SenderId != currentUser.UserId &&
-                 m.MessageType == SaleConfirmationService.MessageTypeSaleConfirmation &&
-                 m.ConfirmationStatus == "pending",
-            ct);
+        var isBuyer = chat.BuyerId == currentUser.UserId;
+        var hasUnread = await ComputeUnreadAsync(chat, ct);
 
         return new ChatDto(
             chat.Id,
@@ -185,8 +219,62 @@ public class ChatsController(
             listing?.Title,
             image,
             listing?.Price,
+            isBuyer,
             hasUnread,
             chat.CreatedAt);
+    }
+
+    private async Task<bool> ComputeUnreadAsync(Chat chat, CancellationToken ct)
+    {
+        var lastRead = chat.BuyerId == currentUser.UserId
+            ? chat.BuyerLastReadAt
+            : chat.SellerLastReadAt;
+
+        var unreadCandidates = await db.Messages
+            .Where(m => m.ChatId == chat.Id &&
+                        m.SenderId != currentUser.UserId &&
+                        (!lastRead.HasValue || m.SentAt > lastRead.Value))
+            .OrderByDescending(m => m.SentAt)
+            .ToListAsync(ct);
+
+        foreach (var message in unreadCandidates)
+        {
+            if (message.MessageType == SaleConfirmationService.MessageTypeSaleConfirmation)
+            {
+                if (chat.BuyerId != currentUser.UserId ||
+                    message.ConfirmationStatus != "pending")
+                {
+                    continue;
+                }
+
+                if (message.SaleId is null)
+                {
+                    continue;
+                }
+
+                var pendingForBuyer = await db.SaleConfirmations.AnyAsync(
+                    c => c.SaleId == message.SaleId &&
+                         c.BuyerId == currentUser.UserId &&
+                         c.Status == "pending",
+                    ct);
+
+                if (pendingForBuyer)
+                {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (message.MessageType == SaleConfirmationService.MessageTypeSystemText)
+            {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     private async Task EnsureListingInquiryMessageAsync(
@@ -226,13 +314,12 @@ public class ChatsController(
         {
             Id = Guid.NewGuid().ToString("N")[..12],
             ChatId = chatId,
-            SenderId = currentUser.UserId!,
-            Content = JsonSerializer.Serialize(snapshot),
+            SenderId = currentUser.UserId ?? listing.UserId,
+            Content = JsonSerializer.Serialize(snapshot, InquiryJsonOptions),
             MessageType = "listing_inquiry",
         };
 
         db.Messages.Add(inquiry);
-        await db.SaveChangesAsync(ct);
     }
 
     private async Task<MessageDto> ToMessageDto(Message message, CancellationToken ct)
@@ -260,7 +347,9 @@ public class ChatsController(
         {
             try
             {
-                var snapshot = JsonSerializer.Deserialize<ListingInquirySnapshot>(message.Content);
+                var snapshot = JsonSerializer.Deserialize<ListingInquirySnapshot>(
+                    message.Content,
+                    InquiryJsonOptions);
                 if (snapshot is not null)
                 {
                     listingId = snapshot.ListingId;

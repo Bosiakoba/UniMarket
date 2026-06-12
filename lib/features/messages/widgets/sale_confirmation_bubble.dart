@@ -12,12 +12,14 @@ class SaleConfirmationBubble extends StatelessWidget {
     required this.message,
     required this.onConfirm,
     required this.onDeny,
+    required this.viewerIsBuyer,
     this.isResponding = false,
   });
 
   final ChatMessage message;
   final VoidCallback onConfirm;
   final VoidCallback onDeny;
+  final bool viewerIsBuyer;
   final bool isResponding;
 
   @override
@@ -49,16 +51,19 @@ class SaleConfirmationBubble extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(message.text, style: AppTypography.body()),
+          Text(
+            viewerIsBuyer
+                ? message.text
+                : 'You recorded this sale. The buyer has been asked to confirm.',
+            style: AppTypography.body(),
+          ),
           const SizedBox(height: 12),
           if (responded)
             Text(
-              message.confirmationStatus == 'confirmed'
-                  ? 'You confirmed this purchase.'
-                  : 'You said you did not buy this.',
+              _responseLabel(),
               style: AppTypography.caption(color: AppColors.textSecondary),
             )
-          else if (message.canRespondToSale)
+          else if (message.canRespondToSale && viewerIsBuyer)
             Row(
               children: [
                 Expanded(
@@ -78,9 +83,26 @@ class SaleConfirmationBubble extends StatelessWidget {
                   ),
                 ),
               ],
+            )
+          else if (!viewerIsBuyer)
+            Text(
+              'Waiting for the buyer to confirm.',
+              style: AppTypography.caption(color: AppColors.textSecondary),
             ),
         ],
       ),
     );
+  }
+
+  String _responseLabel() {
+    final confirmed = message.confirmationStatus == 'confirmed';
+    if (viewerIsBuyer) {
+      return confirmed
+          ? 'You confirmed this purchase.'
+          : 'You said you did not buy this.';
+    }
+    return confirmed
+        ? 'The buyer confirmed this purchase.'
+        : 'The buyer said they did not purchase this.';
   }
 }
