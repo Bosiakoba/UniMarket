@@ -55,14 +55,20 @@ class _SellerApplicationStatusScreenState
   }
 
   Future<void> _refresh() async {
+    if (!mounted) return;
+
     final session = UserSessionScope.of(context);
     final store = SellerStoreScope.of(context);
     final client = ApiClientScope.of(context);
 
-    await store.refreshApplicationStatus(
-      client: client,
-      onUserUpdated: session.setCurrentUser,
-    );
+    try {
+      await store.refreshApplicationStatus(
+        client: client,
+        onUserUpdated: session.setCurrentUser,
+      );
+    } catch (_) {
+      // Keep polling; transient network errors should not freeze the UI.
+    }
   }
 
   @override

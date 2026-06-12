@@ -42,6 +42,10 @@ public class CloudflareAiReviewService(
 
         try
         {
+            logger.LogInformation(
+                "Starting Cloudflare AI review for {RequestId}.",
+                requestId);
+
             using var request = new HttpRequestMessage(HttpMethod.Post, processUrl)
             {
                 Content = JsonContent.Create(new { requestId }),

@@ -139,15 +139,17 @@ class ApiClient {
     required String studentEmail,
     String? idDocumentUrl,
   }) async {
-    final response = await http.post(
-      _uri('/api/users/seller-application'),
-      headers: _headers,
-      body: jsonEncode({
-        'storeName': storeName,
-        'studentEmail': studentEmail,
-        'idDocumentUrl': ?idDocumentUrl,
-      }),
-    );
+    final response = await http
+        .post(
+          _uri('/api/users/seller-application'),
+          headers: _headers,
+          body: jsonEncode({
+            'storeName': storeName,
+            'studentEmail': studentEmail,
+            'idDocumentUrl': ?idDocumentUrl,
+          }),
+        )
+        .timeout(const Duration(minutes: 3));
     if (response.statusCode >= 400) {
       throw ApiException(
         _errorMessage(response, fallback: 'Seller application failed'),
@@ -157,10 +159,12 @@ class ApiClient {
   }
 
   Future<AppUser> applyVerifyBadge() async {
-    final response = await http.post(
-      _uri('/api/users/verify-badge'),
-      headers: _headers,
-    );
+    final response = await http
+        .post(
+          _uri('/api/users/verify-badge'),
+          headers: _headers,
+        )
+        .timeout(const Duration(minutes: 3));
     if (response.statusCode >= 400) {
       throw ApiException(
         _errorMessage(

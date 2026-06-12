@@ -17,6 +17,8 @@ class MessageStore extends ChangeNotifier {
   List<MessageThread> get threads =>
       List.unmodifiable(_threads.reversed.toList());
 
+  int get unreadCount => _threads.where((thread) => thread.unread).length;
+
   MessageThread? threadById(String id) {
     for (final thread in _threads) {
       if (thread.id == id) return thread;

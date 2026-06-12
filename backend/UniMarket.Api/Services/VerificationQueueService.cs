@@ -28,32 +28,71 @@ public class VerificationQueueService(AppDbContext db, NotificationService notif
     public async Task<(string SellerApplication, string VerificationBadge, string? StoreName)>
         ResolveUserStatusesAsync(User user, CancellationToken ct)
     {
-        var sellerRequest = await GetLatestAsync(user.Id, TypeSellerApplication, ct);
+        var sellerApplication = await ResolveSellerApplicationStatusForUserAsync(
+            user.Id,
+            user,
+            ct);
         var badgeRequest = await GetLatestAsync(user.Id, TypeVerifiedBadge, ct);
 
+        var sellerRequest = await GetLatestAsync(user.Id, TypeSellerApplication, ct);
+
         return (
-            ResolveSellerApplicationStatus(user, sellerRequest),
+            sellerApplication,
             ResolveBadgeStatus(user, badgeRequest),
             sellerRequest?.StoreName);
     }
 
-    public static string ResolveSellerApplicationStatus(User user, VerificationRequest? request) =>
-        request?.Status switch
+    public async Task<string> ResolveSellerApplicationStatusForUserAsync(
+        string userId,
+        User user,
+        CancellationToken ct)
+    {
+        var hasPending = await db.VerificationRequests.AnyAsync(
+            r => r.UserId == userId
+                && r.RequestType == TypeSellerApplication
+                && r.Status == "Pending",
+            ct);
+
+        if (hasPending)
         {
-            "Pending" => "pending",
-            "Rejected" => "rejected",
-            "Approved" => "approved",
+            return "pending";
+        }
+
+        var latest = await GetLatestAsync(userId, TypeSellerApplication, ct);
+        return ResolveSellerApplicationStatus(user, latest);
+    }
+
+    public static string ResolveSellerApplicationStatus(User user, VerificationRequest? request)
+    {
+        if (request is null)
+        {
+            return user.IsSeller ? "approved" : "none";
+        }
+
+        return request.Status?.ToLowerInvariant() switch
+        {
+            "pending" => "pending",
+            "rejected" => "rejected",
+            "approved" => "approved",
             _ => user.IsSeller ? "approved" : "none",
         };
+    }
 
-    public static string ResolveBadgeStatus(User user, VerificationRequest? request) =>
-        request?.Status switch
+    public static string ResolveBadgeStatus(User user, VerificationRequest? request)
+    {
+        if (request is null)
         {
-            "Pending" => "pending",
-            "Rejected" => "rejected",
-            "Approved" => "approved",
+            return user.IsVerified ? "approved" : "none";
+        }
+
+        return request.Status?.ToLowerInvariant() switch
+        {
+            "pending" => "pending",
+            "rejected" => "rejected",
+            "approved" => "approved",
             _ => user.IsVerified ? "approved" : "none",
         };
+    }
 
     public async Task<List<VerificationRequestDto>> ListQueueAsync(
         string? status,

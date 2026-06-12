@@ -13,7 +13,7 @@ public class UsersController(
     AppDbContext db,
     CurrentUserService currentUser,
     VerificationQueueService verificationQueue,
-    AiReviewBackgroundDispatcher aiReviewDispatcher,
+    CloudflareAiReviewService aiReviewService,
     CampusEmailOtpService campusEmailOtp) : ControllerBase
 {
     [HttpGet("me")]
@@ -159,8 +159,16 @@ public class UsersController(
         db.VerificationRequests.Add(verificationRequest);
 
         await db.SaveChangesAsync(ct);
-        aiReviewDispatcher.Enqueue(verificationRequest.Id);
-        return Ok(new { status = "Pending", requestType = VerificationQueueService.TypeSellerApplication });
+        await aiReviewService.TryReviewAsync(verificationRequest.Id, ct);
+
+        var statuses = await verificationQueue.ResolveUserStatusesAsync(user, ct);
+        return Ok(new
+        {
+            status = statuses.SellerApplication,
+            requestType = VerificationQueueService.TypeSellerApplication,
+            requestId = verificationRequest.Id,
+            aiReviewCompleted = true,
+        });
     }
 
     [HttpPost("verify-badge")]
@@ -208,8 +216,16 @@ public class UsersController(
         db.VerificationRequests.Add(verificationRequest);
 
         await db.SaveChangesAsync(ct);
-        aiReviewDispatcher.Enqueue(verificationRequest.Id);
-        return Ok(new { status = "Pending", requestType = VerificationQueueService.TypeVerifiedBadge });
+        await aiReviewService.TryReviewAsync(verificationRequest.Id, ct);
+
+        var statuses = await verificationQueue.ResolveUserStatusesAsync(user, ct);
+        return Ok(new
+        {
+            status = statuses.VerificationBadge,
+            requestType = VerificationQueueService.TypeVerifiedBadge,
+            requestId = verificationRequest.Id,
+            aiReviewCompleted = true,
+        });
     }
 
     private async Task<(User? User, ActionResult? Error)> RequireUserAsync(CancellationToken ct)

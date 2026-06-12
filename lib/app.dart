@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'core/api/api_client.dart';
@@ -44,7 +46,7 @@ class UniMarketApp extends StatefulWidget {
   State<UniMarketApp> createState() => _UniMarketAppState();
 }
 
-class _UniMarketAppState extends State<UniMarketApp> {
+class _UniMarketAppState extends State<UniMarketApp> with WidgetsBindingObserver {
   final _apiClient = ApiClient(baseUrl: ApiConfig.baseUrl);
   final _preferences = AppPreferencesStore();
   final _session = UserSessionStore();
@@ -54,6 +56,46 @@ class _UniMarketAppState extends State<UniMarketApp> {
   final _notificationStore = NotificationStore();
   final _reviewStore = ReviewStore();
   final _reportStore = ReportStore();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshLiveSessionData());
+    }
+  }
+
+  Future<void> _refreshLiveSessionData() async {
+    final user = _session.currentUser;
+    if (user == null) return;
+
+    final token = await FirebaseAuthService.getIdToken();
+    _apiClient.idToken = token;
+    _apiClient.devUserId = token == null ? user.id : null;
+
+    try {
+      await _sellerStore.refreshApplicationStatus(
+        client: _apiClient,
+        onUserUpdated: _session.setCurrentUser,
+      );
+    } catch (_) {}
+
+    await Future.wait([
+      _notificationStore.syncFromApi(_apiClient),
+      _messageStore.syncFromApi(_apiClient, userId: user.id),
+    ]);
+  }
 
   Future<void> bootstrapAfterSignIn() async {
     final user = _session.currentUser;
@@ -81,6 +123,9 @@ class _UniMarketAppState extends State<UniMarketApp> {
     await PushNotificationService.registerDevice(
       client: _apiClient,
       notificationStore: _notificationStore,
+      sellerStore: _sellerStore,
+      sessionStore: _session,
+      messageStore: _messageStore,
     );
   }
 

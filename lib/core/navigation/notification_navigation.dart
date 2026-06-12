@@ -3,14 +3,20 @@ import 'package:flutter/material.dart';
 import '../../features/messages/chat_screen.dart';
 import '../../features/sell/sell_entry.dart';
 import '../../features/sell/verified_seller_screen.dart';
+import '../api/session_mode.dart';
 import '../models/app_notification.dart';
 import '../models/listing_item.dart';
 import '../navigation/listing_navigation.dart';
+import '../widgets/api_client_scope.dart';
 import '../widgets/message_store_scope.dart';
 import '../widgets/seller_store_scope.dart';
+import '../widgets/user_session_scope.dart';
 
 abstract final class NotificationNavigation {
-  static void open(BuildContext context, AppNotification notification) {
+  static Future<void> open(
+    BuildContext context,
+    AppNotification notification,
+  ) async {
     final targetId = notification.targetId;
     if (targetId == null) return;
 
@@ -49,12 +55,29 @@ abstract final class NotificationNavigation {
             ),
           );
         } else {
-          SellEntry.openVerifiedApplication(context);
+          await SellEntry.openVerifiedApplication(context);
         }
       case NotificationType.sellerApplication:
-        SellEntry.openSellerApplication(context);
+        await _refreshSellerStatus(context);
+        if (!context.mounted) return;
+        await SellEntry.openSellerApplication(context);
       case NotificationType.system:
         break;
     }
+  }
+
+  static Future<void> _refreshSellerStatus(BuildContext context) async {
+    final session = UserSessionScope.of(context);
+    final store = SellerStoreScope.of(context);
+    final client = ApiClientScope.of(context);
+
+    if (!isLiveSession(client) || session.currentUser == null) return;
+
+    try {
+      await store.refreshApplicationStatus(
+        client: client,
+        onUserUpdated: session.setCurrentUser,
+      );
+    } catch (_) {}
   }
 }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../core/api/session_mode.dart';
 import '../../core/models/listing_item.dart';
 import '../../core/navigation/listing_navigation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/listing_image.dart';
 import '../../core/widgets/seller_store_scope.dart';
 import '../../core/widgets/user_session_scope.dart';
@@ -16,8 +18,36 @@ import 'settings_screen.dart';
 import '../shell/main_shell.dart';
 import 'my_listings_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshSellerStatus());
+  }
+
+  Future<void> _refreshSellerStatus() async {
+    if (!mounted) return;
+
+    final session = UserSessionScope.of(context);
+    final store = SellerStoreScope.of(context);
+    final client = ApiClientScope.of(context);
+
+    if (!isLiveSession(client) || session.currentUser == null) return;
+
+    try {
+      await store.refreshApplicationStatus(
+        client: client,
+        onUserUpdated: session.setCurrentUser,
+      );
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +60,7 @@ class ProfileScreen extends StatelessWidget {
       builder: (context, _) {
         final isSeller = sellerStore.isSeller;
         final sellerPending = sellerStore.sellerApplicationPending;
+        final sellerRejected = sellerStore.sellerApplicationRejected;
         final isVerified = sellerStore.isVerified;
         final listingCount = sellerStore.activeCount;
         final ratingLabel = sellerStore.sellerReviewCount == 0
@@ -151,6 +182,13 @@ class ProfileScreen extends StatelessWidget {
                           subtitle: 'Campus review in progress',
                           onTap: () => SellEntry.openSellerApplication(context),
                         )
+                      else if (sellerRejected)
+                        _ProfileTile(
+                          icon: LucideIcons.xCircle,
+                          title: 'Seller application',
+                          subtitle: 'Needs update — tap to review',
+                          onTap: () => SellEntry.openSellerApplication(context),
+                        )
                       else if (!isSeller)
                         _ProfileTile(
                           icon: LucideIcons.store,
@@ -177,6 +215,8 @@ class ProfileScreen extends StatelessWidget {
                             ? 'Sell to students on campus'
                             : sellerPending
                             ? 'Waiting for seller approval'
+                            : sellerRejected
+                            ? 'Update your application first'
                             : 'Apply to sell first',
                         onTap: () => SellEntry.openPostFlow(context),
                       ),

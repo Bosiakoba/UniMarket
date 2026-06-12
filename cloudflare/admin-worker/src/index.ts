@@ -886,10 +886,11 @@ async function processPendingReviews(env: Env): Promise<void> {
   if (!response.ok) return;
 
   const items = (await response.json()) as VerificationRequest[];
-  for (const item of items) {
-    if (item.aiReviewSummary || item.status !== "Pending") continue;
-    await processRequestReview(env, item);
-  }
+  const pending = items.filter(
+    (item) => !item.aiReviewSummary && item.status === "Pending",
+  );
+
+  await Promise.all(pending.map((item) => processRequestReview(env, item)));
 }
 
 export default {

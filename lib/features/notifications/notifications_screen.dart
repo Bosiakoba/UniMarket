@@ -40,7 +40,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!context.mounted) return;
 
     if (notification.hasAction) {
-      NotificationNavigation.open(context, notification);
+      await NotificationNavigation.open(context, notification);
     }
   }
 

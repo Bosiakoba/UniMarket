@@ -916,7 +916,7 @@ class SellerStore extends ChangeNotifier {
     String status,
     bool isSeller,
   ) {
-    return switch (status) {
+    return switch (status.toLowerCase()) {
       'pending' => SellerApplicationStatus.pending,
       'rejected' => SellerApplicationStatus.rejected,
       'approved' => SellerApplicationStatus.approved,
@@ -928,7 +928,7 @@ class SellerStore extends ChangeNotifier {
   }
 
   VerificationStatus _mapVerificationStatus(String status, bool isVerified) {
-    return switch (status) {
+    return switch (status.toLowerCase()) {
       'pending' => VerificationStatus.pending,
       'rejected' => VerificationStatus.none,
       'approved' => VerificationStatus.verified,

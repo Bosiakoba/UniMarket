@@ -1,16 +1,39 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api/session_mode.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/seller_store_scope.dart';
+import '../../core/widgets/user_session_scope.dart';
 import 'post_listing_screen.dart';
 import 'seller_application_screen.dart';
 import 'seller_application_status_screen.dart';
 import 'verified_seller_screen.dart';
 
 abstract final class SellEntry {
+  static Future<void> _refreshSellerStatus(BuildContext context) async {
+    final session = UserSessionScope.of(context);
+    final store = SellerStoreScope.of(context);
+    final client = ApiClientScope.of(context);
+
+    if (!isLiveSession(client) || session.currentUser == null) return;
+
+    try {
+      await store.refreshApplicationStatus(
+        client: client,
+        onUserUpdated: session.setCurrentUser,
+      );
+    } catch (_) {
+      // Keep the last known local state if the network blips.
+    }
+  }
+
   static Future<void> openPostFlow(BuildContext context) async {
+    await _refreshSellerStatus(context);
+    if (!context.mounted) return;
+
     final store = SellerStoreScope.of(context);
 
-    if (store.sellerApplicationPending) {
+    if (store.sellerApplicationPending || store.sellerApplicationRejected) {
       await SellerApplicationStatusScreen.open(
         context,
         continueToListing: true,
@@ -33,9 +56,12 @@ abstract final class SellEntry {
   }
 
   static Future<void> openSellerApplication(BuildContext context) async {
+    await _refreshSellerStatus(context);
+    if (!context.mounted) return;
+
     final store = SellerStoreScope.of(context);
 
-    if (store.sellerApplicationPending) {
+    if (store.sellerApplicationPending || store.sellerApplicationRejected) {
       await SellerApplicationStatusScreen.open(context);
       return;
     }

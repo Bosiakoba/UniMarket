@@ -377,7 +377,9 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
             Padding(
               padding: EdgeInsets.fromLTRB(24, 0, 24, bottom + 16),
               child: UniButton(
-                label: 'Submit for review',
+                label: _submitting
+                    ? 'Running campus AI checks...'
+                    : 'Submit for review',
                 variant: UniButtonVariant.green,
                 isLoading: _submitting,
                 onPressed: (_submitting || !_emailVerified) ? null : _submit,
