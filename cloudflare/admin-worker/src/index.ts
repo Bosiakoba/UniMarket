@@ -237,11 +237,25 @@ interface AiReviewResult {
 interface IdVisionAssessment {
   isStudentId: boolean;
   summary: string;
+  whatImageShows: string | null;
   nameOnId: string | null;
   universityOnId: string | null;
   nameMatchesProfile: boolean;
   universityMatchesProfile: boolean;
 }
+
+interface ParsedVisionFields {
+  rawText: string;
+  isStudentIdClaim: boolean | null;
+  whatImageShows: string | null;
+  nameOnId: string | null;
+  universityOnId: string | null;
+  nameMatchesProfile: boolean | null;
+  universityMatchesProfile: boolean | null;
+}
+
+const VISION_MODEL_PRIMARY = "@cf/meta/llama-3.2-11b-vision-instruct";
+const VISION_MODEL_FALLBACK = "@cf/llava-hf/llava-1.5-7b-hf";
 
 interface EmailCampusCheck {
   summary: string;
@@ -251,11 +265,23 @@ interface EmailCampusCheck {
 }
 
 function tokenizeUniversity(value: string): string[] {
-  return value
+  const stopWords = new Set(["the", "and", "of", "for", "at", "in"]);
+  const words = value
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter((token) => token.length > 2 && !["the", "and", "of", "for"].includes(token));
+    .filter((token) => token.length > 2 && !stopWords.has(token));
+
+  const tokens = [...words];
+  const acronym = words
+    .filter((word) => word.length > 1)
+    .map((word) => word[0])
+    .join("");
+  if (acronym.length >= 3) {
+    tokens.push(acronym);
+  }
+
+  return tokens;
 }
 
 function assessEmailCampusMatch(
@@ -345,6 +371,7 @@ const NON_ID_IMAGE_SIGNALS = [
   "poster",
   "marketing",
   "jersey",
+  "jerseys",
   "football",
   "soccer",
   "product photo",
@@ -355,6 +382,20 @@ const NON_ID_IMAGE_SIGNALS = [
   "banner",
   "logo design",
   "e-commerce",
+  "sports graphic",
+  "club jersey",
+  "eazy",
+];
+
+const STUDENT_ID_DESCRIPTION_SIGNALS = [
+  "student id",
+  "student card",
+  "id card",
+  "identification card",
+  "university card",
+  "campus card",
+  "school id",
+  "university id",
 ];
 
 function visionLooksLikeNonStudentId(vision: string): boolean {
@@ -362,49 +403,195 @@ function visionLooksLikeNonStudentId(vision: string): boolean {
   return NON_ID_IMAGE_SIGNALS.some((signal) => normalized.includes(signal));
 }
 
-function parseVisionAssessment(
-  visionText: string,
+function visionDescriptionLooksLikeStudentId(description: string): boolean {
+  const normalized = description.toLowerCase();
+  return STUDENT_ID_DESCRIPTION_SIGNALS.some((signal) => normalized.includes(signal));
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function parseVisionLine(visionText: string, key: string): string | null {
+  const match = visionText.match(new RegExp(`^${key}:\\s*(.+)$`, "im"));
+  return match ? match[1].trim() : null;
+}
+
+function parseYesNoUnclear(value: string | null): boolean | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "yes") return true;
+  if (normalized === "no") return false;
+  return null;
+}
+
+function parseVisionFields(visionText: string): ParsedVisionFields {
+  const isStudentIdLine = visionText.match(/IS_STUDENT_ID:\s*(yes|no)/i);
+  return {
+    rawText: visionText.trim(),
+    isStudentIdClaim: isStudentIdLine
+      ? isStudentIdLine[1].toLowerCase() === "yes"
+      : null,
+    whatImageShows: parseVisionLine(visionText, "WHAT_IMAGE_SHOWS"),
+    nameOnId: parseVisionLine(visionText, "NAME_ON_ID"),
+    universityOnId: parseVisionLine(visionText, "UNIVERSITY_ON_ID"),
+    nameMatchesProfile: parseYesNoUnclear(
+      parseVisionLine(visionText, "NAME_MATCHES_PROFILE"),
+    ),
+    universityMatchesProfile: parseYesNoUnclear(
+      parseVisionLine(visionText, "UNIVERSITY_MATCHES_PROFILE"),
+    ),
+  };
+}
+
+function isMeaningfulIdField(value: string | null): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized.length > 0 &&
+    !["none", "n/a", "unknown", "not visible"].includes(normalized)
+  );
+}
+
+function finalizeVisionAssessment(
+  fields: ParsedVisionFields,
   item: VerificationRequest,
 ): IdVisionAssessment {
-  const normalized = visionText.toLowerCase();
+  const combined = [fields.rawText, fields.whatImageShows ?? ""].join("\n");
+  const description = fields.whatImageShows ?? fields.rawText;
+  const incomplete =
+    !fields.whatImageShows ||
+    fields.whatImageShows.length < 12 ||
+    fields.isStudentIdClaim === null;
+
+  if (incomplete) {
+    return {
+      isStudentId: false,
+      whatImageShows: fields.whatImageShows,
+      nameOnId: fields.nameOnId,
+      universityOnId: fields.universityOnId,
+      nameMatchesProfile: false,
+      universityMatchesProfile: false,
+      summary: [
+        "Vision could not reliably classify the uploaded image.",
+        fields.rawText || "No vision output.",
+        "Treat as NOT a verified student ID until an admin reviews the photo.",
+      ].join("\n"),
+    };
+  }
+
+  if (visionLooksLikeNonStudentId(combined)) {
+    return {
+      isStudentId: false,
+      whatImageShows: fields.whatImageShows,
+      nameOnId: fields.nameOnId,
+      universityOnId: fields.universityOnId,
+      nameMatchesProfile: false,
+      universityMatchesProfile: false,
+      summary: [
+        "Uploaded image is NOT a student ID card.",
+        `WHAT_IMAGE_SHOWS: ${fields.whatImageShows}`,
+        fields.nameOnId ? `NAME_ON_ID: ${fields.nameOnId}` : "",
+        fields.universityOnId ? `UNIVERSITY_ON_ID: ${fields.universityOnId}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    };
+  }
+
+  const describesStudentId = visionDescriptionLooksLikeStudentId(description);
+  const hasVisibleIdFields =
+    isMeaningfulIdField(fields.nameOnId) ||
+    isMeaningfulIdField(fields.universityOnId);
+  const isStudentId =
+    fields.isStudentIdClaim === true &&
+    describesStudentId &&
+    hasVisibleIdFields &&
+    !visionLooksLikeNonStudentId(combined);
+
   const profileName = (item.userFullName ?? "").trim().toLowerCase();
   const profileUniversity = (item.university ?? "").trim().toLowerCase();
 
-  const explicitNo =
-    /\b(no|not)\b.{0,40}\b(student id|id card|university id|school id)\b/i.test(
-      visionText,
-    ) || visionLooksLikeNonStudentId(visionText);
-
-  const explicitYes =
-    /\b(yes|this is|appears to be|looks like)\b.{0,40}\b(student id|id card|university id|school id)\b/i.test(
-      visionText,
-    );
-
-  const isStudentId = explicitYes && !explicitNo && !visionLooksLikeNonStudentId(visionText);
-
   const nameMatchesProfile =
-    profileName.length > 0 &&
-    normalized.includes(profileName) &&
-    (normalized.includes("match") ||
-      normalized.includes("same") ||
-      normalized.includes("consistent"));
+    isStudentId &&
+    (fields.nameMatchesProfile === true ||
+      (profileName.length > 0 &&
+        isMeaningfulIdField(fields.nameOnId) &&
+        fields.nameOnId!.toLowerCase().includes(profileName.split(" ")[0])));
 
   const universityTokens = tokenizeUniversity(profileUniversity);
   const universityMatchesProfile =
-    universityTokens.length > 0 &&
-    universityTokens.some((token) => normalized.includes(token)) &&
-    (normalized.includes("match") ||
-      normalized.includes("same") ||
-      normalized.includes("consistent"));
+    isStudentId &&
+    (fields.universityMatchesProfile === true ||
+      (universityTokens.length > 0 &&
+        isMeaningfulIdField(fields.universityOnId) &&
+        universityTokens.some((token) =>
+          fields.universityOnId!.toLowerCase().includes(token),
+        )));
+
+  const summary = isStudentId
+    ? [
+        "Uploaded image appears to be a student/university ID card.",
+        `WHAT_IMAGE_SHOWS: ${fields.whatImageShows}`,
+        fields.nameOnId ? `NAME_ON_ID: ${fields.nameOnId}` : "",
+        fields.universityOnId ? `UNIVERSITY_ON_ID: ${fields.universityOnId}` : "",
+        `NAME_MATCHES_PROFILE: ${nameMatchesProfile ? "yes" : "no"}`,
+        `UNIVERSITY_MATCHES_PROFILE: ${universityMatchesProfile ? "yes" : "no"}`,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : [
+        "Uploaded image does NOT appear to be a student ID card.",
+        `WHAT_IMAGE_SHOWS: ${fields.whatImageShows}`,
+        fields.isStudentIdClaim
+          ? "Model claimed IS_STUDENT_ID: yes — overridden after description check."
+          : "IS_STUDENT_ID: no",
+      ].join("\n");
 
   return {
     isStudentId,
-    summary: visionText.trim(),
-    nameOnId: null,
-    universityOnId: null,
-    nameMatchesProfile: isStudentId && nameMatchesProfile,
-    universityMatchesProfile: isStudentId && universityMatchesProfile,
+    whatImageShows: fields.whatImageShows,
+    nameOnId: fields.nameOnId,
+    universityOnId: fields.universityOnId,
+    nameMatchesProfile,
+    universityMatchesProfile,
+    summary,
   };
+}
+
+async function runVisionPrompt(
+  env: Env,
+  imageBytes: Uint8Array,
+  prompt: string,
+): Promise<string> {
+  const imageDataUrl = `data:image/jpeg;base64,${bytesToBase64(imageBytes)}`;
+
+  try {
+    const result = await env.AI.run(VISION_MODEL_PRIMARY, {
+      messages: [
+        {
+          role: "system",
+          content:
+            "You verify uploaded photos for a campus marketplace. Be strict. Advertisements, sports graphics, product photos, flyers, jerseys, memes, and screenshots are never student IDs. Only answer yes to IS_STUDENT_ID when you clearly see a physical university/student identification card with school branding.",
+        },
+        { role: "user", content: prompt },
+      ],
+      image: imageDataUrl,
+      max_tokens: 450,
+    });
+    return extractVisionText(result);
+  } catch {
+    const result = await env.AI.run(VISION_MODEL_FALLBACK, {
+      image: [...imageBytes],
+      prompt,
+      max_tokens: 512,
+    });
+    return extractVisionText(result);
+  }
 }
 
 async function analyzeStudentIdImage(
@@ -413,61 +600,33 @@ async function analyzeStudentIdImage(
   item: VerificationRequest,
 ): Promise<IdVisionAssessment> {
   const prompt = [
-    "You are reviewing an uploaded photo for a campus marketplace seller application.",
-    "The applicant claims this image is their student/university ID card.",
-    `Profile name: ${item.userFullName ?? "unknown"}`,
-    `Profile university: ${item.university ?? "unknown"}`,
+    "Look at the uploaded image carefully.",
+    "Do not assume it is a student ID. Describe what you actually see.",
+    `Applicant profile name: ${item.userFullName ?? "unknown"}`,
+    `Applicant profile university: ${item.university ?? "unknown"}`,
     "",
-    "Answer in plain text with these exact sections:",
+    "Reply using exactly these labeled lines:",
     "IS_STUDENT_ID: yes or no",
-    "WHAT_IMAGE_SHOWS: one sentence describing what the image actually is",
-    "NAME_ON_ID: name visible on the document, or none",
-    "UNIVERSITY_ON_ID: school/university visible on the document, or none",
+    "WHAT_IMAGE_SHOWS: one detailed sentence describing the image content (required)",
+    "NAME_ON_ID: full name printed on the document, or none",
+    "UNIVERSITY_ON_ID: school/university printed on the document, or none",
     "NAME_MATCHES_PROFILE: yes, no, or unclear",
     "UNIVERSITY_MATCHES_PROFILE: yes, no, or unclear",
-    "NOTES: any fraud or quality concerns",
+    "NOTES: fraud or quality concerns",
     "",
-    "If the image is an advertisement, product photo, sports graphic, flyer, screenshot, or anything other than a student ID card, set IS_STUDENT_ID: no.",
+    "Examples:",
+    "- Sports jersey advertisement -> IS_STUDENT_ID: no",
+    "- University photo ID card with student name -> IS_STUDENT_ID: yes",
   ].join("\n");
 
   try {
-    const result = await env.AI.run("@cf/llava-hf/llava-1.5-7b-hf", {
-      image: [...imageBytes],
-      prompt,
-      max_tokens: 512,
-    });
-
-    const visionText = extractVisionText(result);
-    const parsed = parseVisionAssessment(visionText, item);
-
-    const isStudentIdLine = visionText.match(/IS_STUDENT_ID:\s*(yes|no)/i);
-    if (isStudentIdLine) {
-      parsed.isStudentId = isStudentIdLine[1].toLowerCase() === "yes";
-    }
-
-    const nameMatchLine = visionText.match(/NAME_MATCHES_PROFILE:\s*(yes|no|unclear)/i);
-    if (nameMatchLine) {
-      parsed.nameMatchesProfile =
-        parsed.isStudentId && nameMatchLine[1].toLowerCase() === "yes";
-    }
-
-    const universityMatchLine = visionText.match(
-      /UNIVERSITY_MATCHES_PROFILE:\s*(yes|no|unclear)/i,
-    );
-    if (universityMatchLine) {
-      parsed.universityMatchesProfile =
-        parsed.isStudentId && universityMatchLine[1].toLowerCase() === "yes";
-    }
-
-  if (!parsed.isStudentId) {
-      parsed.nameMatchesProfile = false;
-      parsed.universityMatchesProfile = false;
-    }
-
-    return parsed;
+    const visionText = await runVisionPrompt(env, imageBytes, prompt);
+    const fields = parseVisionFields(visionText);
+    return finalizeVisionAssessment(fields, item);
   } catch {
     return {
       isStudentId: false,
+      whatImageShows: null,
       summary: "Vision model could not analyze the uploaded image.",
       nameOnId: null,
       universityOnId: null,
@@ -568,6 +727,7 @@ async function runAiReview(env: Env, item: VerificationRequest): Promise<AiRevie
   let vision: IdVisionAssessment = {
     isStudentId: false,
     summary: "No student ID image was attached.",
+    whatImageShows: null,
     nameOnId: null,
     universityOnId: null,
     nameMatchesProfile: false,
@@ -585,6 +745,7 @@ async function runAiReview(env: Env, item: VerificationRequest): Promise<AiRevie
         isStudentId: false,
         summary:
           "The API could not provide the uploaded image for vision review. Manual check required.",
+        whatImageShows: null,
         nameOnId: null,
         universityOnId: null,
         nameMatchesProfile: false,
