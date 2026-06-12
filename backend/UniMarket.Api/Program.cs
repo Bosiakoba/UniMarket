@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
@@ -34,9 +35,13 @@ if (useD1Primary)
     builder.Services.AddSingleton<D1SchemaInitializer>();
     builder.Services.AddSingleton<D1SaveChangesInterceptor>();
 
+    var sqliteConnection = new SqliteConnection("Data Source=:memory:;Cache=Shared");
+    sqliteConnection.Open();
+    builder.Services.AddSingleton(sqliteConnection);
+
     builder.Services.AddDbContext<AppDbContext>((sp, options) =>
     {
-        options.UseSqlite("Data Source=:memory:");
+        options.UseSqlite(sp.GetRequiredService<SqliteConnection>());
         options.AddInterceptors(sp.GetRequiredService<D1SaveChangesInterceptor>());
     });
 }
@@ -120,8 +125,11 @@ using (var scope = app.Services.CreateScope())
         await DatabaseSchemaPatcher.ApplyAsync(db);
     }
 
-    var d1Initializer = scope.ServiceProvider.GetRequiredService<D1SchemaInitializer>();
-    await d1Initializer.EnsureSchemaAsync();
+    if (useD1Primary)
+    {
+        var d1Initializer = scope.ServiceProvider.GetRequiredService<D1SchemaInitializer>();
+        await d1Initializer.EnsureSchemaAsync();
+    }
 
     if (useD1Primary)
     {

@@ -26,8 +26,8 @@ public class D1SchemaInitializer(
         var sql = await File.ReadAllTextAsync(schemaPath, ct);
         var statements = sql
             .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(s => s.Trim())
-            .Where(s => s.Length > 0 && !s.StartsWith("--", StringComparison.Ordinal))
+            .Select(StripLeadingComments)
+            .Where(s => s.Length > 0)
             .ToList();
 
         var tables = statements
@@ -52,6 +52,25 @@ public class D1SchemaInitializer(
         }
 
         logger.LogInformation("Cloudflare D1 schema initialization finished.");
+    }
+
+    private static string StripLeadingComments(string sql)
+    {
+        var lines = sql.Split('\n');
+        var start = 0;
+        while (start < lines.Length)
+        {
+            var trimmed = lines[start].TrimStart();
+            if (trimmed.Length == 0 || trimmed.StartsWith("--", StringComparison.Ordinal))
+            {
+                start++;
+                continue;
+            }
+
+            break;
+        }
+
+        return string.Join('\n', lines.Skip(start)).Trim();
     }
 
     private static string Truncate(string value) =>
