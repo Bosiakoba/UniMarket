@@ -368,13 +368,18 @@ const NON_ID_IMAGE_SIGNALS = [
   "is not an id",
   "not a university id",
   "not a school id",
+  "does not appear to be a student id",
+  "does not appear to be a student",
   "advertisement",
   "advertising",
   "promotional",
   "promotion",
+  "promotional material",
   "flyer",
   "poster",
   "marketing",
+  "tournament",
+  "bracket",
   "jersey",
   "jerseys",
   "football",
@@ -421,9 +426,22 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+function normalizeVisionText(visionText: string): string {
+  return visionText
+    .replace(/\*\*/g, "")
+    .replace(/^[-*]\s+/gm, "")
+    .trim();
+}
+
 function parseVisionLine(visionText: string, key: string): string | null {
-  const match = visionText.match(new RegExp(`^${key}:\\s*(.+)$`, "im"));
-  return match ? match[1].trim() : null;
+  const normalized = normalizeVisionText(visionText);
+  const lineMatch = normalized.match(new RegExp(`^${key}:\\s*(.+)$`, "im"));
+  if (lineMatch) return lineMatch[1].trim();
+
+  const inlineMatch = normalized.match(
+    new RegExp(`${key}:\\s*(.+?)(?:\\n|$)`, "i"),
+  );
+  return inlineMatch ? inlineMatch[1].trim() : null;
 }
 
 function parseYesNoUnclear(value: string | null): boolean | null {
@@ -434,22 +452,43 @@ function parseYesNoUnclear(value: string | null): boolean | null {
   return null;
 }
 
+function parseIsStudentIdClaim(visionText: string): boolean | null {
+  const normalized = normalizeVisionText(visionText);
+  const match = normalized.match(/IS_STUDENT_ID:\s*(yes|no)\b/i);
+  if (!match) return null;
+  return match[1].toLowerCase() === "yes";
+}
+
 function parseVisionFields(visionText: string): ParsedVisionFields {
-  const isStudentIdLine = visionText.match(/IS_STUDENT_ID:\s*(yes|no)/i);
+  const rawText = visionText.trim();
   return {
-    rawText: visionText.trim(),
-    isStudentIdClaim: isStudentIdLine
-      ? isStudentIdLine[1].toLowerCase() === "yes"
-      : null,
-    whatImageShows: parseVisionLine(visionText, "WHAT_IMAGE_SHOWS"),
-    nameOnId: parseVisionLine(visionText, "NAME_ON_ID"),
-    universityOnId: parseVisionLine(visionText, "UNIVERSITY_ON_ID"),
+    rawText,
+    isStudentIdClaim: parseIsStudentIdClaim(rawText),
+    whatImageShows: parseVisionLine(rawText, "WHAT_IMAGE_SHOWS"),
+    nameOnId: parseVisionLine(rawText, "NAME_ON_ID"),
+    universityOnId: parseVisionLine(rawText, "UNIVERSITY_ON_ID"),
     nameMatchesProfile: parseYesNoUnclear(
-      parseVisionLine(visionText, "NAME_MATCHES_PROFILE"),
+      parseVisionLine(rawText, "NAME_MATCHES_PROFILE"),
     ),
     universityMatchesProfile: parseYesNoUnclear(
-      parseVisionLine(visionText, "UNIVERSITY_MATCHES_PROFILE"),
+      parseVisionLine(rawText, "UNIVERSITY_MATCHES_PROFILE"),
     ),
+  };
+}
+
+function buildNonIdAssessment(
+  fields: ParsedVisionFields,
+  summaryLines: string[],
+): IdVisionAssessment {
+  return {
+    isStudentId: false,
+    confidence: "high",
+    whatImageShows: fields.whatImageShows,
+    nameOnId: fields.nameOnId,
+    universityOnId: fields.universityOnId,
+    nameMatchesProfile: false,
+    universityMatchesProfile: false,
+    summary: summaryLines.filter(Boolean).join("\n"),
   };
 }
 
@@ -468,12 +507,33 @@ function finalizeVisionAssessment(
 ): IdVisionAssessment {
   const combined = [fields.rawText, fields.whatImageShows ?? ""].join("\n");
   const description = fields.whatImageShows ?? fields.rawText;
+  const explicitNotStudentId = fields.isStudentIdClaim === false;
   const incomplete =
     !fields.whatImageShows ||
     fields.whatImageShows.length < 12 ||
     fields.isStudentIdClaim === null;
 
+  if (explicitNotStudentId && visionLooksLikeNonStudentId(combined)) {
+    return buildNonIdAssessment(fields, [
+      "Uploaded image is NOT a student ID card.",
+      fields.whatImageShows
+        ? `WHAT_IMAGE_SHOWS: ${fields.whatImageShows}`
+        : fields.rawText,
+      fields.nameOnId ? `NAME_ON_ID: ${fields.nameOnId}` : "",
+      fields.universityOnId ? `UNIVERSITY_ON_ID: ${fields.universityOnId}` : "",
+    ]);
+  }
+
   if (incomplete) {
+    if (explicitNotStudentId) {
+      return buildNonIdAssessment(fields, [
+        "Uploaded image is NOT a student ID card.",
+        fields.whatImageShows
+          ? `WHAT_IMAGE_SHOWS: ${fields.whatImageShows}`
+          : fields.rawText,
+      ]);
+    }
+
     return {
       isStudentId: false,
       confidence: "low",
@@ -491,23 +551,12 @@ function finalizeVisionAssessment(
   }
 
   if (visionLooksLikeNonStudentId(combined)) {
-    return {
-      isStudentId: false,
-      confidence: "high",
-      whatImageShows: fields.whatImageShows,
-      nameOnId: fields.nameOnId,
-      universityOnId: fields.universityOnId,
-      nameMatchesProfile: false,
-      universityMatchesProfile: false,
-      summary: [
-        "Uploaded image is NOT a student ID card.",
-        `WHAT_IMAGE_SHOWS: ${fields.whatImageShows}`,
-        fields.nameOnId ? `NAME_ON_ID: ${fields.nameOnId}` : "",
-        fields.universityOnId ? `UNIVERSITY_ON_ID: ${fields.universityOnId}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    };
+    return buildNonIdAssessment(fields, [
+      "Uploaded image is NOT a student ID card.",
+      `WHAT_IMAGE_SHOWS: ${fields.whatImageShows}`,
+      fields.nameOnId ? `NAME_ON_ID: ${fields.nameOnId}` : "",
+      fields.universityOnId ? `UNIVERSITY_ON_ID: ${fields.universityOnId}` : "",
+    ]);
   }
 
   const describesStudentId = visionDescriptionLooksLikeStudentId(description);
@@ -712,7 +761,10 @@ function synthesizeReview(
 
   if (!vision.isStudentId) {
     const recommendation: AiReviewResult["recommendation"] =
-      vision.confidence === "high" ? "reject" : "review";
+      vision.confidence === "high" ||
+      parseIsStudentIdClaim(vision.summary) === false
+        ? "reject"
+        : "review";
     return {
       recommendation,
       confidence: vision.confidence,
