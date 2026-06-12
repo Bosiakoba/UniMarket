@@ -67,11 +67,6 @@ class _SignInScreenState extends State<SignInScreen> {
     }
 
     final route = session.postAuthRoute(client);
-    if (route == AppRoutes.home) {
-      await widget.onSignedIn?.call();
-    }
-    if (!mounted) return;
-
     Navigator.of(context).pushReplacementNamed(route);
   }
 

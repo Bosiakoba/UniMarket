@@ -56,11 +56,9 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     if (session.isLoggedIn) {
-      final route = session.postAuthRoute(client);
-      if (route == AppRoutes.home) {
         await widget.onBootstrap?.call();
-      }
       if (!mounted) return;
+      final route = session.postAuthRoute(client);
       Navigator.of(context).pushReplacementNamed(route);
       return;
     }
