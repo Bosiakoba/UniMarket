@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../core/api/session_mode.dart';
+import '../../core/auth/auth_gate.dart';
 import '../../core/models/listing_item.dart';
 import '../../core/navigation/listing_navigation.dart';
 import '../../core/theme/app_colors.dart';
@@ -58,6 +59,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return ListenableBuilder(
       listenable: Listenable.merge([sellerStore, session]),
       builder: (context, _) {
+        final isGuest = session.isGuest;
+        final canSignOut = session.isRegistered;
         final isSeller = sellerStore.isSeller;
         final sellerPending = sellerStore.sellerApplicationPending;
         final sellerRejected = sellerStore.sellerApplicationRejected;
@@ -174,12 +177,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       floatingChromeBottomInset(context),
                     ),
                     children: [
+                      if (isGuest)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceMuted,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                LucideIcons.user,
+                                size: 18,
+                                color: AppColors.forestGreen,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Browsing as guest. Sign in when you want '
+                                  'to message sellers or start selling.',
+                                  style: AppTypography.caption(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       _SectionTitle('Seller'),
                       if (sellerPending)
                         _ProfileTile(
                           icon: LucideIcons.clock3,
                           title: 'Seller application',
                           subtitle: 'Campus review in progress',
+                          needsAttention: true,
                           onTap: () => SellEntry.openSellerApplication(context),
                         )
                       else if (sellerRejected)
@@ -187,6 +218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           icon: LucideIcons.xCircle,
                           title: 'Seller application',
                           subtitle: 'Needs update — tap to review',
+                          needsAttention: true,
                           onTap: () => SellEntry.openSellerApplication(context),
                         )
                       else if (!isSeller)
@@ -245,15 +277,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _ProfileTile(
                         icon: LucideIcons.messageCircle,
                         title: 'Messages',
-                        onTap: () =>
-                            Navigator.of(context).pushNamed(AppRoutes.messages),
+                        onTap: () async {
+                          final allowed = await ensureRegisteredAccount(
+                            context,
+                            reason: 'Sign in to view your messages.',
+                          );
+                          if (!context.mounted || !allowed) return;
+                          await Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.messages);
+                        },
                       ),
                       _ProfileTile(
                         icon: LucideIcons.bell,
                         title: 'Notifications',
-                        onTap: () => Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.notifications),
+                        onTap: () async {
+                          final allowed = await ensureRegisteredAccount(
+                            context,
+                            reason: 'Sign in to view notifications.',
+                          );
+                          if (!context.mounted || !allowed) return;
+                          await Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.notifications);
+                        },
                       ),
                       const SizedBox(height: 16),
                       _SectionTitle('Recent listings'),
@@ -267,18 +314,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   _openListing(context, record.listing),
                             ),
                           ),
-                      const SizedBox(height: 20),
-                      Center(
-                        child: TextButton(
-                          onPressed: () => SettingsScreen.signOut(context),
-                          child: Text(
-                            'Sign out',
-                            style: AppTypography.body(
-                              color: AppColors.textSecondary,
+                      if (canSignOut) ...[
+                        const SizedBox(height: 20),
+                        Center(
+                          child: TextButton(
+                            onPressed: () => SettingsScreen.signOut(context),
+                            child: Text(
+                              'Sign out',
+                              style: AppTypography.body(
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -343,12 +392,14 @@ class _ProfileTile extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
+    this.needsAttention = false,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
+  final bool needsAttention;
   final VoidCallback onTap;
 
   @override
@@ -360,7 +411,26 @@ class _ProfileTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 11),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: AppColors.textPrimary),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, size: 20, color: AppColors.textPrimary),
+                if (needsAttention)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: AppColors.dealRed,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.white, width: 1.5),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -369,7 +439,14 @@ class _ProfileTile extends StatelessWidget {
                   Text(title, style: AppTypography.body()),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
-                    Text(subtitle!, style: AppTypography.caption()),
+                    Text(
+                      subtitle!,
+                      style: AppTypography.caption(
+                        color: needsAttention
+                            ? AppColors.dealRed
+                            : AppColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ],
               ),

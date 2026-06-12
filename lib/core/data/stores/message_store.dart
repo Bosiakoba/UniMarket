@@ -49,6 +49,7 @@ class MessageStore extends ChangeNotifier {
 
   Future<MessageThread> openThreadForSeller({
     required String sellerName,
+    String? sellerUserId,
     ListingItem? listing,
     ApiClient? client,
   }) async {
@@ -93,12 +94,14 @@ class MessageStore extends ChangeNotifier {
   Future<void> navigateToSellerChat(
     BuildContext context, {
     required String sellerName,
+    String? sellerUserId,
     ListingItem? listing,
     ApiClient? client,
     String? currentUserId,
   }) async {
     final thread = await openThreadForSeller(
       sellerName: sellerName,
+      sellerUserId: sellerUserId,
       listing: listing,
       client: client,
     );
@@ -319,7 +322,11 @@ class MessageStore extends ChangeNotifier {
 
     if (client != null && isLiveSession(client) && trimmed.isNotEmpty) {
       try {
-        await client.sendChatMessage(chatId: threadId, content: trimmed);
+        await client.sendChatMessage(
+          chatId: threadId,
+          content: trimmed,
+          listingId: listing?.canonicalId,
+        );
         await refreshThreadMessages(
           threadId: threadId,
           client: client,

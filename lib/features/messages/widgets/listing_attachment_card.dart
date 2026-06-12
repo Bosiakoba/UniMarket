@@ -64,6 +64,10 @@ class ListingAttachmentCard extends StatelessWidget {
                   listing.formattedPrice,
                   style: AppTypography.caption(),
                 ),
+                Text(
+                  'Listing #${listing.canonicalId}',
+                  style: AppTypography.caption(color: AppColors.textTertiary),
+                ),
               ],
             ),
           ),

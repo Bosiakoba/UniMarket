@@ -505,11 +505,15 @@ class ApiClient {
   Future<void> sendChatMessage({
     required String chatId,
     required String content,
+    String? listingId,
   }) async {
     final response = await http.post(
       _uri('/api/chats/$chatId/messages'),
       headers: _headers,
-      body: jsonEncode({'content': content}),
+      body: jsonEncode({
+        'content': content,
+        'listingId': ?listingId,
+      }),
     );
     if (response.statusCode >= 400) {
       throw ApiException(
@@ -622,15 +626,36 @@ class ApiClient {
       kind = ChatMessageKind.systemText;
     }
 
+    ListingItem? listingAttachment;
+    final inquiryListingId = json['listingId'] as String?;
+    if (inquiryListingId != null && inquiryListingId.isNotEmpty) {
+      listingAttachment = ListingItem(
+        id: inquiryListingId,
+        title: json['listingTitle'] as String? ?? 'Listing',
+        price: (json['listingPrice'] as num?)?.toDouble() ?? 0,
+        imageAsset: json['listingImageUrl'] as String? ?? '',
+        photoUrls: [
+          if ((json['listingImageUrl'] as String?)?.isNotEmpty ?? false)
+            json['listingImageUrl'] as String,
+        ],
+        sellerName: 'Seller',
+        isVerified: false,
+        distanceKm: 0,
+        category: 'Listing',
+      );
+    }
+
     return ChatMessage(
       id: json['id'] as String,
       text: json['content'] as String? ?? '',
       isMine:
           !isSystem &&
           senderId == currentUserId &&
-          kind == ChatMessageKind.text,
+          (kind == ChatMessageKind.text ||
+              messageType == 'listing_inquiry'),
       timeLabel: json['timeLabel'] as String? ?? 'Recently',
       kind: kind,
+      listing: listingAttachment,
       saleId: json['saleId'] as String?,
       confirmationStatus: json['confirmationStatus'] as String?,
       requiresMyResponse: json['canRespond'] as bool? ?? false,

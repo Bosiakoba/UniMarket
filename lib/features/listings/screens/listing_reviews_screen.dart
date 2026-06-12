@@ -4,9 +4,11 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/models/listing_item.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/api/session_mode.dart';
 import '../../../core/widgets/rating_row.dart';
 import '../../../core/widgets/api_client_scope.dart';
 import '../../../core/widgets/review_store_scope.dart';
+import '../../../core/widgets/skeleton_loaders.dart';
 import '../../../core/widgets/user_session_scope.dart';
 import '../widgets/review_tile.dart';
 import '../widgets/write_review_form.dart';
@@ -87,6 +89,9 @@ class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
       listenable: reviewStore,
       builder: (context, _) {
         final reviews = reviewStore.forListing(listingId);
+        final loadingReviews = reviewStore.isLoadingFor(listingId) &&
+            reviews.isEmpty &&
+            isLiveSession(ApiClientScope.of(context));
         final average = reviewStore.averageRating(listingId);
         final count = reviewStore.reviewCount(listingId);
         final displayRating = count > 0 ? average : widget.listing.rating;
@@ -118,7 +123,11 @@ class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
                 onSubmit: _postReview,
               ),
               const SizedBox(height: 24),
-              if (reviews.isEmpty)
+              if (loadingReviews) ...[
+                const ReviewTileSkeleton(),
+                const SizedBox(height: 12),
+                const ReviewTileSkeleton(showDivider: false),
+              ] else if (reviews.isEmpty)
                 Text(
                   'No reviews yet. Be the first to share your experience.',
                   style: AppTypography.body(color: AppColors.textSecondary),

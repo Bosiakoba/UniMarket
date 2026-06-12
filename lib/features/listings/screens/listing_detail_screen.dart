@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/shoe_sizes.dart';
 import '../../../core/data/stores/seller_store.dart';
 import '../../../core/models/listing_item.dart';
@@ -62,10 +63,17 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
         'Contact the seller to agree on price and a meetup location.';
   }
 
-  void _contactSeller() {
-    MessageStoreScope.of(context).navigateToSellerChat(
+  Future<void> _contactSeller() async {
+    final allowed = await ensureRegisteredAccount(
+      context,
+      reason: 'Sign in to message this seller about ${widget.listing.title}.',
+    );
+    if (!allowed || !mounted) return;
+
+    await MessageStoreScope.of(context).navigateToSellerChat(
       context,
       sellerName: widget.listing.sellerName,
+      sellerUserId: widget.listing.sellerUserId,
       listing: widget.listing,
       client: ApiClientScope.of(context),
       currentUserId: UserSessionScope.of(context).currentUser?.id,

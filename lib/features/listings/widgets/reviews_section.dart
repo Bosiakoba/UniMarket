@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../core/models/listing_item.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/api/session_mode.dart';
+import '../../../core/widgets/api_client_scope.dart';
 import '../../../core/widgets/rating_row.dart';
 import '../../../core/widgets/review_store_scope.dart';
+import '../../../core/widgets/skeleton_loaders.dart';
 import '../screens/listing_reviews_screen.dart';
 import 'review_tile.dart';
 
@@ -27,6 +30,13 @@ class ReviewsSection extends StatelessWidget {
       listenable: reviewStore,
       builder: (context, _) {
         final reviews = reviewStore.forListing(listingId);
+        final loadingReviews = reviewStore.isLoadingFor(listingId) &&
+            reviews.isEmpty &&
+            isLiveSession(ApiClientScope.of(context));
+        if (loadingReviews) {
+          return const ReviewsSectionSkeleton();
+        }
+
         final preview = reviews.take(previewCount).toList();
         final average = reviewStore.averageRating(listingId);
         final count = reviewStore.reviewCount(listingId);

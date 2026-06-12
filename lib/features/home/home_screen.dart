@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api/session_mode.dart';
 import '../../core/data/services/home_feed_service.dart';
 import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/seller_store_scope.dart';
+import '../../core/widgets/skeleton_loaders.dart';
 import '../../core/widgets/user_session_scope.dart';
 import '../shell/main_shell.dart';
 import '../shell/main_shell_scope.dart';
@@ -20,6 +22,10 @@ class HomeScreen extends StatelessWidget {
     return ListenableBuilder(
       listenable: sellerStore,
       builder: (context, _) {
+        final client = ApiClientScope.of(context);
+        final isLoadingFeed = sellerStore.isSyncingCatalog &&
+            sellerStore.allListings.isEmpty &&
+            isLiveSession(client);
         final sections = HomeFeedService.buildFeed(sellerStore.allListings);
 
         return VaultFeedLayout(
@@ -27,7 +33,9 @@ class HomeScreen extends StatelessWidget {
           stickyContent: HomeSearchHint(
             onTap: () => MainShellScope.of(context).goToTab(1),
           ),
-          body: RefreshIndicator(
+          body: isLoadingFeed
+              ? const HomeFeedSkeleton()
+              : RefreshIndicator(
             onRefresh: () async {
               final user = UserSessionScope.of(context).currentUser;
               if (user == null) return;

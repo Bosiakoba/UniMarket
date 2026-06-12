@@ -9,6 +9,10 @@ abstract final class OnboardingNavigation {
   }) {
     if (user == null) return AppRoutes.signIn;
 
+    if (FirebaseAuthService.isAnonymous) {
+      return AppRoutes.home;
+    }
+
     if (usesFirebaseAuth && !FirebaseAuthService.emailVerified) {
       return AppRoutes.verification;
     }

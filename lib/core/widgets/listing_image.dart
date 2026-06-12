@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_assets.dart';
+import 'skeleton_loaders.dart';
 
 /// Renders a listing photo from a network URL or local asset path.
 class ListingImage extends StatelessWidget {
@@ -70,16 +71,10 @@ class ListingImage extends StatelessWidget {
       errorBuilder: (_, _, _) => _fallback(),
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;
-        return Container(
+        return SkeletonBox(
           width: width,
           height: height,
-          color: Colors.grey.shade200,
-          alignment: Alignment.center,
-          child: const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+          borderRadius: borderRadius?.topLeft.x ?? 12,
         );
       },
     );

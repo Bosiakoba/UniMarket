@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/constants/shoe_sizes.dart';
+import '../../../core/auth/auth_gate.dart';
 import '../../../core/models/listing_item.dart';
 import '../../../core/navigation/listing_navigation.dart';
 import '../../../core/theme/app_colors.dart';
@@ -93,10 +94,17 @@ class ListingCompactCard extends StatelessWidget {
                         top: 6,
                         right: 6,
                         child: GestureDetector(
-                          onTap: () => wishlist.toggle(
-                            listingId,
-                            client: ApiClientScope.of(context),
-                          ),
+                          onTap: () async {
+                            final allowed = await ensureRegisteredAccount(
+                              context,
+                              reason: 'Sign in to save campus deals to your wishlist.',
+                            );
+                            if (!context.mounted || !allowed) return;
+                            await wishlist.toggle(
+                              listingId,
+                              client: ApiClientScope.of(context),
+                            );
+                          },
                           child: Container(
                             width: 26,
                             height: 26,

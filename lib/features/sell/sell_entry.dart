@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/session_mode.dart';
+import '../../core/auth/auth_gate.dart';
 import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/seller_store_scope.dart';
 import '../../core/widgets/user_session_scope.dart';
@@ -28,6 +29,12 @@ abstract final class SellEntry {
   }
 
   static Future<void> openPostFlow(BuildContext context) async {
+    final allowed = await ensureRegisteredAccount(
+      context,
+      reason: 'Sign in to post listings and reach buyers on your campus.',
+    );
+    if (!allowed || !context.mounted) return;
+
     await _refreshSellerStatus(context);
     if (!context.mounted) return;
 
@@ -56,6 +63,12 @@ abstract final class SellEntry {
   }
 
   static Future<void> openSellerApplication(BuildContext context) async {
+    final allowed = await ensureRegisteredAccount(
+      context,
+      reason: 'Sign in to apply as a campus seller.',
+    );
+    if (!allowed || !context.mounted) return;
+
     await _refreshSellerStatus(context);
     if (!context.mounted) return;
 
@@ -77,6 +90,12 @@ abstract final class SellEntry {
   }
 
   static Future<void> openVerifiedApplication(BuildContext context) async {
+    final allowed = await ensureRegisteredAccount(
+      context,
+      reason: 'Sign in to apply for the verified seller badge.',
+    );
+    if (!allowed || !context.mounted) return;
+
     final store = SellerStoreScope.of(context);
 
     if (!store.isSeller) {

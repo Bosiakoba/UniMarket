@@ -10,8 +10,14 @@ class UserSessionStore extends ChangeNotifier {
   AppUser? currentUser;
   bool isSigningIn = false;
   String? lastAuthError;
+  bool _guestSession = false;
 
   bool get isLoggedIn => currentUser != null;
+
+  bool get isGuest =>
+      !isLoggedIn || _guestSession || FirebaseAuthService.isAnonymous;
+
+  bool get isRegistered => isLoggedIn && !isGuest;
 
   bool usesFirebaseAuth(ApiClient client) => client.idToken != null;
 
@@ -46,6 +52,7 @@ class UserSessionStore extends ChangeNotifier {
     notifyListeners();
 
     try {
+      _guestSession = false;
       await FirebaseAuthService.signInWithEmailPassword(
         email: email,
         password: password,
@@ -90,6 +97,7 @@ class UserSessionStore extends ChangeNotifier {
     notifyListeners();
 
     try {
+      _guestSession = false;
       await FirebaseAuthService.signUpWithEmailPassword(
         email: trimmedEmail,
         password: password,
@@ -107,13 +115,36 @@ class UserSessionStore extends ChangeNotifier {
     }
   }
 
+  Future<String?> signInAnonymouslyWithApi({required ApiClient client}) async {
+    isSigningIn = true;
+    lastAuthError = null;
+    notifyListeners();
+
+    try {
+      _guestSession = true;
+      await FirebaseAuthService.signInAnonymously();
+      return await _completeApiSession(client);
+    } on FirebaseAuthException catch (error) {
+      return FirebaseAuthService.mapAuthError(error);
+    } catch (error) {
+      lastAuthError = error.toString();
+      return error.toString();
+    } finally {
+      isSigningIn = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> restoreFromFirebase({required ApiClient client}) async {
     if (FirebaseAuthService.currentUser == null) return false;
 
     try {
+      _guestSession = FirebaseAuthService.isAnonymous;
       await _completeApiSession(client);
+      _guestSession = FirebaseAuthService.isAnonymous;
       return currentUser != null;
     } catch (_) {
+      _guestSession = false;
       await FirebaseAuthService.signOut();
       client
         ..idToken = null
@@ -132,7 +163,12 @@ class UserSessionStore extends ChangeNotifier {
 
     try {
       final profile = await client.bootstrapSession(firebaseIdToken: idToken);
-      currentUser = ListingMapper.userFromJson(profile);
+      var user = ListingMapper.userFromJson(profile);
+      if (FirebaseAuthService.isAnonymous) {
+        _guestSession = true;
+        user = user.copyWith(profileComplete: true);
+      }
+      currentUser = user;
       client
         ..idToken = idToken
         ..devUserId = null;
@@ -156,6 +192,7 @@ class UserSessionStore extends ChangeNotifier {
     await FirebaseAuthService.signOut();
     currentUser = null;
     lastAuthError = null;
+    _guestSession = false;
     notifyListeners();
   }
 

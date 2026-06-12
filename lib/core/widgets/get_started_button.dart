@@ -9,10 +9,12 @@ class GetStartedButton extends StatelessWidget {
     super.key,
     required this.onPressed,
     this.label = 'Get Started',
+    this.isLoading = false,
   });
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final String label;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +22,7 @@ class GetStartedButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onPressed,
+          onTap: isLoading ? null : onPressed,
           borderRadius: BorderRadius.circular(40),
           child: Ink(
             width: 260,
@@ -42,7 +44,7 @@ class GetStartedButton extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.only(left: 28),
                     child: Text(
-                      label,
+                      isLoading ? 'Preparing…' : label,
                       style: AppTypography.button(color: AppColors.black),
                     ),
                   ),
@@ -54,14 +56,22 @@ class GetStartedButton extends StatelessWidget {
                       color: AppColors.forestGreen,
                       shape: BoxShape.circle,
                     ),
-                    child: const SizedBox(
+                    child: SizedBox(
                       width: 46,
                       height: 46,
-                      child: Icon(
-                        LucideIcons.arrowRight,
-                        color: AppColors.white,
-                        size: 22,
-                      ),
+                      child: isLoading
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: AppColors.white,
+                              ),
+                            )
+                          : const Icon(
+                              LucideIcons.arrowRight,
+                              color: AppColors.white,
+                              size: 22,
+                            ),
                     ),
                   ),
                 ),

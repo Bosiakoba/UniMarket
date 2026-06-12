@@ -55,16 +55,20 @@ class _SplashScreenState extends State<SplashScreen>
     }
     if (!mounted) return;
 
+    if (!session.isLoggedIn && preferences.onboardingComplete) {
+      final error = await session.signInAnonymouslyWithApi(client: client);
+      if (!mounted) return;
+      if (error != null) {
+        Navigator.of(context).pushReplacementNamed(AppRoutes.onboarding);
+        return;
+      }
+    }
+
     if (session.isLoggedIn) {
-        await widget.onBootstrap?.call();
+      await widget.onBootstrap?.call();
       if (!mounted) return;
       final route = session.postAuthRoute(client);
       Navigator.of(context).pushReplacementNamed(route);
-      return;
-    }
-
-    if (preferences.onboardingComplete) {
-      Navigator.of(context).pushReplacementNamed(AppRoutes.signIn);
       return;
     }
 

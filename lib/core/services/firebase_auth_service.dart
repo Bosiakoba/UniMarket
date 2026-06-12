@@ -13,6 +13,12 @@ class FirebaseAuthService {
     }
   }
 
+  static bool get isAnonymous => currentUser?.isAnonymous ?? false;
+
+  static Future<UserCredential> signInAnonymously() {
+    return _auth.signInAnonymously();
+  }
+
   static Future<UserCredential> signInWithEmailPassword({
     required String email,
     required String password,

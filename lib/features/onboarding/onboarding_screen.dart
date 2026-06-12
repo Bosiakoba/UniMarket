@@ -1,16 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
 import '../../core/widgets/app_preferences_scope.dart';
 import '../../core/widgets/get_started_button.dart';
-import '../../routes/app_routes.dart';
+import '../../core/widgets/user_session_scope.dart';
+import 'home_preparing_screen.dart';
 import 'widgets/onboarding_card_stack.dart';
 import 'widgets/onboarding_gradient.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  const OnboardingScreen({super.key, this.onBootstrap});
+
+  final Future<void> Function()? onBootstrap;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -19,6 +25,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _controller = PageController();
   int _currentPage = 0;
+  bool _isFinishing = false;
 
   static const _pages = [
     (
@@ -47,6 +54,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
+  Future<void> _finishOnboarding() async {
+    if (_isFinishing) return;
+    setState(() => _isFinishing = true);
+
+    final preferences = AppPreferencesScope.of(context);
+    final session = UserSessionScope.of(context);
+    final client = ApiClientScope.of(context);
+    final bootstrap = widget.onBootstrap;
+
+    preferences.completeOnboarding();
+    if (!mounted) return;
+
+    await Navigator.of(context).pushReplacement(
+      HomePreparingScreen.route(
+        onPrepare: () async {
+          final error = await session.signInAnonymouslyWithApi(client: client);
+          if (error != null) throw Exception(error);
+          await bootstrap?.call();
+        },
+      ),
+    );
+  }
+
   void _onNext() {
     if (_currentPage < _pages.length - 1) {
       _controller.nextPage(
@@ -55,13 +85,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
       return;
     }
-    AppPreferencesScope.of(context).completeOnboarding();
-    Navigator.of(context).pushReplacementNamed(AppRoutes.signIn);
+    unawaited(_finishOnboarding());
   }
 
   void _onSkip() {
-    AppPreferencesScope.of(context).completeOnboarding();
-    Navigator.of(context).pushReplacementNamed(AppRoutes.signIn);
+    unawaited(_finishOnboarding());
   }
 
   @override
@@ -139,6 +167,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     pageCount: _pages.length,
                     currentPage: _currentPage,
                     isLastPage: _currentPage == _pages.length - 1,
+                    isLoading: _isFinishing,
                     onNext: _onNext,
                   ),
                 ],
@@ -158,6 +187,7 @@ class _BottomPanel extends StatelessWidget {
     required this.pageCount,
     required this.currentPage,
     required this.isLastPage,
+    required this.isLoading,
     required this.onNext,
   });
 
@@ -166,6 +196,7 @@ class _BottomPanel extends StatelessWidget {
   final int pageCount;
   final int currentPage;
   final bool isLastPage;
+  final bool isLoading;
   final VoidCallback onNext;
 
   @override
@@ -200,7 +231,8 @@ class _BottomPanel extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           GetStartedButton(
             label: isLastPage ? 'Get Started' : 'Continue',
-            onPressed: onNext,
+            isLoading: isLoading,
+            onPressed: isLoading ? null : onNext,
           ),
         ],
       ),

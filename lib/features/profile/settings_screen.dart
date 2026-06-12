@@ -42,9 +42,14 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = UserSessionScope.of(context);
-    final user = session.currentUser;
 
-    return Scaffold(
+    return ListenableBuilder(
+      listenable: session,
+      builder: (context, _) {
+        final user = session.currentUser;
+        final canSignOut = session.isRegistered;
+
+        return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
         backgroundColor: AppColors.white,
@@ -82,22 +87,26 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          Text('Session', style: AppTypography.bodyBold()),
-          const SizedBox(height: 8),
-          _SettingsTile(
-            icon: LucideIcons.logOut,
-            title: 'Sign out',
-            subtitle: 'Clears local session on this device',
-            onTap: () => signOut(context),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Signed in with Firebase. Listings, chats, and profile sync with your campus API.',
-            style: AppTypography.caption(color: AppColors.textSecondary),
-          ),
+          if (canSignOut) ...[
+            const SizedBox(height: 20),
+            Text('Session', style: AppTypography.bodyBold()),
+            const SizedBox(height: 8),
+            _SettingsTile(
+              icon: LucideIcons.logOut,
+              title: 'Sign out',
+              subtitle: 'Clears local session on this device',
+              onTap: () => signOut(context),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Signed in with Firebase. Listings, chats, and profile sync with your campus API.',
+              style: AppTypography.caption(color: AppColors.textSecondary),
+            ),
+          ],
         ],
       ),
+    );
+      },
     );
   }
 }

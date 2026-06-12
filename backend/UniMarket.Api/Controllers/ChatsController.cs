@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UniMarket.Api.Data;
@@ -118,6 +119,11 @@ public class ChatsController(
             return BadRequest();
         }
 
+        if (!string.IsNullOrWhiteSpace(request.ListingId))
+        {
+            await EnsureListingInquiryMessageAsync(chatId, request.ListingId.Trim(), ct);
+        }
+
         var message = new Message
         {
             Id = Guid.NewGuid().ToString("N")[..12],
@@ -183,6 +189,52 @@ public class ChatsController(
             chat.CreatedAt);
     }
 
+    private async Task EnsureListingInquiryMessageAsync(
+        string chatId,
+        string listingId,
+        CancellationToken ct)
+    {
+        var alreadyShared = await db.Messages.AnyAsync(
+            m => m.ChatId == chatId &&
+                 m.MessageType == "listing_inquiry" &&
+                 m.Content.Contains(listingId, StringComparison.Ordinal),
+            ct);
+
+        if (alreadyShared)
+        {
+            return;
+        }
+
+        var listing = await db.Listings
+            .Include(l => l.Images)
+            .Include(l => l.Owner)
+            .FirstOrDefaultAsync(l => l.Id == listingId, ct);
+
+        if (listing is null)
+        {
+            return;
+        }
+
+        var snapshot = new ListingInquirySnapshot(
+            listing.Id,
+            listing.Title,
+            listing.Price,
+            listing.Images.OrderBy(i => i.SortOrder).FirstOrDefault()?.ImageUrl,
+            listing.UserId);
+
+        var inquiry = new Message
+        {
+            Id = Guid.NewGuid().ToString("N")[..12],
+            ChatId = chatId,
+            SenderId = currentUser.UserId!,
+            Content = JsonSerializer.Serialize(snapshot),
+            MessageType = "listing_inquiry",
+        };
+
+        db.Messages.Add(inquiry);
+        await db.SaveChangesAsync(ct);
+    }
+
     private async Task<MessageDto> ToMessageDto(Message message, CancellationToken ct)
     {
         var canRespond = false;
@@ -198,17 +250,47 @@ public class ChatsController(
                 ct);
         }
 
+        string? listingId = null;
+        string? listingTitle = null;
+        decimal? listingPrice = null;
+        string? listingImageUrl = null;
+        var displayContent = message.Content;
+
+        if (message.MessageType == "listing_inquiry")
+        {
+            try
+            {
+                var snapshot = JsonSerializer.Deserialize<ListingInquirySnapshot>(message.Content);
+                if (snapshot is not null)
+                {
+                    listingId = snapshot.ListingId;
+                    listingTitle = snapshot.Title;
+                    listingPrice = snapshot.Price;
+                    listingImageUrl = snapshot.ImageUrl;
+                    displayContent = $"Inquiry about: {snapshot.Title}";
+                }
+            }
+            catch (JsonException)
+            {
+                displayContent = "Shared a listing inquiry";
+            }
+        }
+
         return new MessageDto(
             message.Id,
             message.ChatId,
             message.SenderId,
-            message.Content,
+            displayContent,
             message.MessageType,
             message.SaleId,
             message.ConfirmationStatus,
             message.SentAt,
             FormatTimeLabel(message.SentAt),
-            canRespond);
+            canRespond,
+            listingId,
+            listingTitle,
+            listingPrice,
+            listingImageUrl);
     }
 
     private static string FormatTimeLabel(DateTime sentAt)

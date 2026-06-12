@@ -139,7 +139,11 @@ public record MessageDto(
     string? ConfirmationStatus,
     DateTime SentAt,
     string TimeLabel,
-    bool CanRespond);
+    bool CanRespond,
+    string? ListingId = null,
+    string? ListingTitle = null,
+    decimal? ListingPrice = null,
+    string? ListingImageUrl = null);
 
 public record SellerApplicationRequest(
     string StoreName,
@@ -163,7 +167,14 @@ public record ChatDto(
     bool Unread,
     DateTime CreatedAt);
 
-public record SendMessageRequest(string Content);
+public record SendMessageRequest(string Content, string? ListingId = null);
+
+public record ListingInquirySnapshot(
+    string ListingId,
+    string Title,
+    decimal Price,
+    string? ImageUrl,
+    string? SellerUserId);
 
 public record ListingReviewDto(
     string Id,

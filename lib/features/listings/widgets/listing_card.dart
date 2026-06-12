@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../../core/auth/auth_gate.dart';
+import '../../../core/data/stores/wishlist_store.dart';
 import '../../../core/models/listing_item.dart';
 import '../../../core/navigation/listing_navigation.dart';
 import '../../../core/theme/app_colors.dart';
@@ -40,68 +42,107 @@ class ListingCard extends StatelessWidget {
         final saved = wishlist.contains(listingId);
         return GestureDetector(
           onTap: onTap ?? () => _openDetail(context),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: ListingImage(
-                        source: listing.primaryPhotoSource,
-                        fit: BoxFit.cover,
-                        cacheWidth: 280,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    if (listing.hasActiveDiscount)
-                      Positioned(
-                        top: 6,
-                        left: 6,
-                        child: ListingDiscountBadge(listing: listing),
-                      ),
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: GestureDetector(
-                        onTap: () => wishlist.toggle(
-                          listingId,
-                          client: ApiClientScope.of(context),
-                        ),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: const BoxDecoration(
-                            color: AppColors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            saved ? Icons.favorite : LucideIcons.heart,
-                            size: saved ? 14 : 13,
-                            color: saved
-                                ? AppColors.dealRed
-                                : AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                listing.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.caption(color: AppColors.textSecondary)
-                    .copyWith(fontSize: 12),
-              ),
-              const SizedBox(height: 2),
-              ListingPriceText(listing: listing),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final boundedHeight = constraints.maxHeight.isFinite;
+              final image = _ListingCardImage(
+                listing: listing,
+                saved: saved,
+                listingId: listingId,
+                wishlist: wishlist,
+              );
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize:
+                    boundedHeight ? MainAxisSize.max : MainAxisSize.min,
+                children: [
+                  if (boundedHeight)
+                    Expanded(child: image)
+                  else
+                    AspectRatio(aspectRatio: 1, child: image),
+                  const SizedBox(height: 6),
+                  Text(
+                    listing.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.caption(color: AppColors.textSecondary)
+                        .copyWith(fontSize: 12),
+                  ),
+                  const SizedBox(height: 2),
+                  ListingPriceText(listing: listing),
+                ],
+              );
+            },
           ),
         );
       },
+    );
+  }
+}
+
+class _ListingCardImage extends StatelessWidget {
+  const _ListingCardImage({
+    required this.listing,
+    required this.saved,
+    required this.listingId,
+    required this.wishlist,
+  });
+
+  final ListingItem listing;
+  final bool saved;
+  final String listingId;
+  final WishlistStore wishlist;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: ListingImage(
+            source: listing.primaryPhotoSource,
+            fit: BoxFit.cover,
+            cacheWidth: 280,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        if (listing.hasActiveDiscount)
+          Positioned(
+            top: 6,
+            left: 6,
+            child: ListingDiscountBadge(listing: listing),
+          ),
+        Positioned(
+          top: 6,
+          right: 6,
+          child: GestureDetector(
+            onTap: () async {
+              final allowed = await ensureRegisteredAccount(
+                context,
+                reason: 'Sign in to save campus deals to your wishlist.',
+              );
+              if (!context.mounted || !allowed) return;
+              await wishlist.toggle(
+                listingId,
+                client: ApiClientScope.of(context),
+              );
+            },
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                saved ? Icons.favorite : LucideIcons.heart,
+                size: saved ? 14 : 13,
+                color: saved ? AppColors.dealRed : AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

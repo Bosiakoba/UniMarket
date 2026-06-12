@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../../core/auth/auth_gate.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -64,6 +65,16 @@ class VaultFeedLayout extends StatelessWidget {
   }
 }
 
+Future<void> _openGatedRoute(
+  BuildContext context,
+  String route, {
+  required String reason,
+}) async {
+  final allowed = await ensureRegisteredAccount(context, reason: reason);
+  if (!allowed || !context.mounted) return;
+  await Navigator.of(context).pushNamed(route);
+}
+
 class VaultTopBar extends StatelessWidget {
   const VaultTopBar({super.key});
 
@@ -90,15 +101,21 @@ class VaultTopBar extends StatelessWidget {
               _TopIcon(
                 icon: LucideIcons.messageCircle,
                 badgeCount: messageStore.unreadCount,
-                onTap: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.messages),
+                onTap: () => _openGatedRoute(
+                  context,
+                  AppRoutes.messages,
+                  reason: 'Sign in to view and reply to your messages.',
+                ),
               ),
               const SizedBox(width: 10),
               _TopIcon(
                 icon: LucideIcons.bell,
                 badgeCount: notificationStore.unreadCount,
-                onTap: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.notifications),
+                onTap: () => _openGatedRoute(
+                  context,
+                  AppRoutes.notifications,
+                  reason: 'Sign in to see campus notifications.',
+                ),
               ),
             ],
           ),
@@ -162,7 +179,7 @@ class _UnreadBadge extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        color: AppColors.forestGreen,
+        color: AppColors.dealRed,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.white, width: 1.5),
       ),

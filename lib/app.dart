@@ -160,7 +160,9 @@ class _UniMarketAppState extends State<UniMarketApp> with WidgetsBindingObserver
                         routes: {
                           AppRoutes.splash: (_) =>
                               SplashScreen(onBootstrap: bootstrapAfterSignIn),
-                          AppRoutes.onboarding: (_) => const OnboardingScreen(),
+                          AppRoutes.onboarding: (_) => OnboardingScreen(
+                            onBootstrap: bootstrapAfterSignIn,
+                          ),
                           AppRoutes.signIn: (_) =>
                               SignInScreen(onSignedIn: bootstrapAfterSignIn),
                           AppRoutes.signUp: (_) =>

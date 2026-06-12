@@ -9,6 +9,10 @@ class ReviewStore extends ChangeNotifier {
   ReviewStore();
 
   final Map<String, List<ListingReview>> _byListing = {};
+  final Set<String> _loadingListingIds = {};
+
+  bool isLoadingFor(String listingId) =>
+      _loadingListingIds.contains(_canonical(listingId));
 
   List<ListingReview> forListing(String listingId) {
     final id = _canonical(listingId);
@@ -26,17 +30,22 @@ class ReviewStore extends ChangeNotifier {
       _byListing[_canonical(listingId)]?.length ?? 0;
 
   Future<void> loadFromApi(ApiClient client, String listingId) async {
+    final id = _canonical(listingId);
     if (!isLiveSession(client)) {
       _seedIfEmpty(listingId);
       return;
     }
 
+    _loadingListingIds.add(id);
+    notifyListeners();
+
     try {
-      final reviews = await client.fetchReviews(_canonical(listingId));
-      _byListing[_canonical(listingId)] = reviews;
-      notifyListeners();
+      final reviews = await client.fetchReviews(id);
+      _byListing[id] = reviews;
     } catch (_) {
-      _byListing[_canonical(listingId)] = [];
+      _byListing[id] = [];
+    } finally {
+      _loadingListingIds.remove(id);
       notifyListeners();
     }
   }

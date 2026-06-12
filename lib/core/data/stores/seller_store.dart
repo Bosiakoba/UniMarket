@@ -177,9 +177,33 @@ class SellerStore extends ChangeNotifier {
   }
 
   List<ListingItem> listingsForSeller(String sellerName) {
-    return allListings
-        .where((listing) => listing.sellerName == sellerName)
-        .toList();
+    final merged = <String, ListingItem>{};
+
+    void put(ListingItem listing) {
+      if (listing.sellerName != sellerName) return;
+      merged[listing.canonicalId] = listing;
+    }
+
+    for (final record in _records) {
+      put(record.listing);
+    }
+    for (final listing in _remoteCatalog) {
+      put(listing);
+    }
+    if (!useRemoteCatalog) {
+      for (final listing in MockListings.items) {
+        put(listing);
+      }
+    }
+
+    final items = merged.values.toList()
+      ..sort((a, b) {
+        final activeCompare =
+            (a.isBrowseable ? 0 : 1).compareTo(b.isBrowseable ? 0 : 1);
+        if (activeCompare != 0) return activeCompare;
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      });
+    return items;
   }
 
   SellerListingRecord? recordFor(String listingId) {
