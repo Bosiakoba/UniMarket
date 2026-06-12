@@ -17,10 +17,10 @@ Do **not** open `/api/ai-review` in the browser expecting a UI. Use `/` for the 
 
 When a user submits a seller application, the API enqueues a background AI review that:
 
-1. Fetches the student ID image through `GET /api/admin/verification-requests/{id}/id-document` (works for local `/media/...` uploads — no public URL required).
-2. Runs **LLaVA** vision on the ID to read the name and university on the card.
+1. Fetches the uploaded image through `GET /api/admin/verification-requests/{id}/id-document` (works for R2 and local `/media/...` uploads).
+2. Runs **Llama 3.2 Vision** (LLaVA fallback) with strict checks — must describe the image and show name/school on card.
 3. Compares profile **university** and **email domain** to the ID and campus email rules.
-4. **Auto-approves** when recommendation is `approve`; otherwise leaves the request **Pending** with an AI summary for manual review on this dashboard.
+4. Saves an AI summary for admin review only — **never auto-approves**.
 
 ## Prerequisites
 
@@ -55,6 +55,14 @@ wrangler secret put ADMIN_API_KEY
 ```
 
 **Live deployment:** https://unimarket-admin.unimarket93.workers.dev
+
+### Llama 3.2 Vision (one-time per account)
+
+```bash
+curl "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/ai/run/@cf/meta/llama-3.2-11b-vision-instruct" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  -d '{ "prompt": "agree" }'
+```
 
 On the API server, set (same admin key as the worker secret):
 
