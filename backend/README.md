@@ -85,6 +85,19 @@ GET /health
 
 Response includes `integrations.firebase.configured` and `integrations.cloudflare.d1|r2.configured`.
 
+## Admin verification queue (Cloudflare Worker)
+
+**Dashboard:** https://unimarket-admin.unimarket93.workers.dev
+
+Set on the API server (must match worker `ADMIN_API_KEY` secret):
+
+```env
+Admin__ApiKey=<same-key-as-worker-secret>
+Cloudflare__AiReviewUrl=https://unimarket-admin.unimarket93.workers.dev/api/ai-review
+```
+
+The worker calls `UNIMARKET_API_URL` (`https://unimarket-api.youngfuturetechnology.xyz` in `wrangler.toml`). Your API must be publicly reachable at that URL for approve/reject and AI review to work.
+
 ## Admin verification queue
 
 Seller applications and verified badge requests share one queue (`VerificationRequest`).

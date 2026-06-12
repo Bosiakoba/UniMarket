@@ -31,6 +31,16 @@ Open the URL Wrangler prints (usually `http://localhost:8787`).
 
 ```bash
 npm run deploy
+wrangler secret put ADMIN_API_KEY
+```
+
+**Live deployment:** https://unimarket-admin.unimarket93.workers.dev
+
+On the API server, set (same admin key as the worker secret):
+
+```env
+Admin__ApiKey=<your-admin-key>
+Cloudflare__AiReviewUrl=https://unimarket-admin.unimarket93.workers.dev/api/ai-review
 ```
 
 ## Admin API (used by the worker)
