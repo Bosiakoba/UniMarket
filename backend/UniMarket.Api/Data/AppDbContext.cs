@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SaleConfirmation> SaleConfirmations => Set<SaleConfirmation>();
     public DbSet<DeviceRegistration> DeviceRegistrations => Set<DeviceRegistration>();
     public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+    public DbSet<CampusEmailOtp> CampusEmailOtps => Set<CampusEmailOtp>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

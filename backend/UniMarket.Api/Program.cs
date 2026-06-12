@@ -16,6 +16,8 @@ builder.Services.Configure<CloudflareSettings>(
     builder.Configuration.GetSection(CloudflareSettings.SectionName));
 builder.Services.Configure<AdminSettings>(
     builder.Configuration.GetSection(AdminSettings.SectionName));
+builder.Services.Configure<ResendSettings>(
+    builder.Configuration.GetSection(ResendSettings.SectionName));
 builder.Services.Configure<ApiSettings>(
     builder.Configuration.GetSection(ApiSettings.SectionName));
 
@@ -57,6 +59,8 @@ builder.Services.AddScoped<SaleConfirmationService>();
 builder.Services.AddScoped<FirebaseNotificationService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddHttpClient<CloudflareAiReviewService>();
+builder.Services.AddHttpClient<ResendEmailService>();
+builder.Services.AddScoped<CampusEmailOtpService>();
 builder.Services.AddSingleton<AiReviewBackgroundDispatcher>();
 builder.Services.AddSingleton<D1SchemaInitializer>();
 
@@ -84,6 +88,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.EnsureCreatedAsync();
+    await DatabaseSchemaPatcher.ApplyAsync(db);
 
     var d1Initializer = scope.ServiceProvider.GetRequiredService<D1SchemaInitializer>();
     await d1Initializer.EnsureSchemaAsync();

@@ -14,6 +14,7 @@ import '../../core/widgets/uni_text_field.dart';
 import '../../core/widgets/user_session_scope.dart';
 import 'seller_application_status_screen.dart';
 import 'widgets/id_upload_card.dart';
+import 'widgets/seller_email_otp_sheet.dart';
 import 'widgets/seller_status_layout.dart';
 
 class SellerApplicationScreen extends StatefulWidget {
@@ -34,6 +35,9 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
   String? _idDocumentPath;
   String? _idDocumentMimeType;
   var _submitting = false;
+  var _sendingOtp = false;
+  var _emailVerified = false;
+  String? _verifiedEmail;
 
   static final _picker = ImagePicker();
 
@@ -52,6 +56,61 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
     if (user == null) return;
     if (_nameController.text.isEmpty) _nameController.text = user.fullName;
     if (_emailController.text.isEmpty) _emailController.text = user.email;
+  }
+
+  void _onEmailChanged(String value) {
+    final trimmed = value.trim().toLowerCase();
+    if (_emailVerified && trimmed != _verifiedEmail) {
+      setState(() {
+        _emailVerified = false;
+        _verifiedEmail = null;
+      });
+    }
+  }
+
+  Future<void> _confirmStudentEmail() async {
+    if (_sendingOtp) return;
+
+    final email = _emailController.text.trim();
+    if (!email.contains('@')) {
+      _showSnack('Enter a valid student email.');
+      return;
+    }
+
+    setState(() => _sendingOtp = true);
+    final client = ApiClientScope.of(context);
+
+    try {
+      await client.sendSellerEmailOtp(email);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _sendingOtp = false);
+      _showSnack(error.toString());
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _sendingOtp = false);
+
+    final verified = await SellerEmailOtpSheet.show(
+      context,
+      email: email,
+      onVerify: (code) async {
+        try {
+          await client.verifySellerEmailOtp(email: email, code: code);
+          return null;
+        } catch (error) {
+          return error.toString();
+        }
+      },
+    );
+
+    if (!mounted || verified != true) return;
+    setState(() {
+      _emailVerified = true;
+      _verifiedEmail = email.toLowerCase();
+    });
+    _showSnack('Student email confirmed.');
   }
 
   Future<void> _pickIdDocument() async {
@@ -84,6 +143,10 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
     }
     if (store.isEmpty) {
       _showSnack('Enter your store or business name.');
+      return;
+    }
+    if (!_emailVerified || _verifiedEmail != email.toLowerCase()) {
+      _showSnack('Confirm your student email before submitting.');
       return;
     }
     if (!_idUploaded) {
@@ -211,12 +274,61 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
                             style: AppTypography.bodyBold(),
                           ),
                           const SizedBox(height: 8),
-                          UniTextField(
-                            hint: 'you@university.edu',
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            prefixIcon: Icons.mail_outline_rounded,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: UniTextField(
+                                  hint: 'you@university.edu',
+                                  controller: _emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  prefixIcon: Icons.mail_outline_rounded,
+                                  onChanged: _onEmailChanged,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: TextButton(
+                                  onPressed: (_sendingOtp || _emailVerified)
+                                      ? null
+                                      : _confirmStudentEmail,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: _emailVerified
+                                        ? AppColors.forestGreen
+                                        : AppColors.forestGreen,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 16,
+                                    ),
+                                  ),
+                                  child: _sendingOtp
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          _emailVerified ? 'Verified' : 'Confirm',
+                                          style: AppTypography.bodyBold(
+                                            color: AppColors.forestGreen,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ],
                           ),
+                          if (_emailVerified) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Campus email confirmed.',
+                              style: AppTypography.caption(
+                                color: AppColors.forestGreen,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: AppSpacing.md),
                           Text(
                             'Store / business name',
@@ -248,7 +360,7 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
                         ),
                         SellerStatusStep(
                           label: 'Campus review',
-                          detail: 'We verify your student ID and email.',
+                          detail: 'AI checks your ID, school, and verified email.',
                           state: SellerStatusStepState.upcoming,
                         ),
                         SellerStatusStep(
@@ -268,7 +380,7 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
                 label: 'Submit for review',
                 variant: UniButtonVariant.green,
                 isLoading: _submitting,
-                onPressed: _submitting ? null : _submit,
+                onPressed: (_submitting || !_emailVerified) ? null : _submit,
               ),
             ),
           ],

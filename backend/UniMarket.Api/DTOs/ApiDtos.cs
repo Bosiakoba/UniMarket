@@ -27,6 +27,7 @@ public record VerificationRequestDto(
     string RequestType,
     string Status,
     string? StoreName,
+    string? StudentEmail,
     string? IdDocumentUrl,
     string? AiReviewSummary,
     string? AiRecommendation,
@@ -140,7 +141,16 @@ public record MessageDto(
     string TimeLabel,
     bool CanRespond);
 
-public record SellerApplicationRequest(string StoreName, string? IdDocumentUrl);
+public record SellerApplicationRequest(
+    string StoreName,
+    string StudentEmail,
+    string? IdDocumentUrl);
+
+public record CampusEmailOtpRequest(string Email);
+
+public record CampusEmailVerifyRequest(string Email, string Code);
+
+public record CampusEmailOtpResponse(string Message, bool Verified);
 
 public record ChatDto(
     string Id,

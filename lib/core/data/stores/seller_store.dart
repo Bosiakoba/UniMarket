@@ -276,6 +276,7 @@ class SellerStore extends ChangeNotifier {
     try {
       await client.submitSellerApplication(
         storeName: data.storeName,
+        studentEmail: data.studentEmail,
         idDocumentUrl: idDocumentUrl,
       );
       return null;

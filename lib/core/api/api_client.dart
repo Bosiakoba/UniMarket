@@ -103,8 +103,40 @@ class ApiClient {
     return ListingMapper.userFromJson(json);
   }
 
+  Future<void> sendSellerEmailOtp(String email) async {
+    final response = await http.post(
+      _uri('/api/users/seller-email/send-otp'),
+      headers: _headers,
+      body: jsonEncode({'email': email}),
+    );
+    if (response.statusCode >= 400) {
+      throw ApiException(
+        _errorMessage(response, fallback: 'Could not send verification code'),
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  Future<void> verifySellerEmailOtp({
+    required String email,
+    required String code,
+  }) async {
+    final response = await http.post(
+      _uri('/api/users/seller-email/verify-otp'),
+      headers: _headers,
+      body: jsonEncode({'email': email, 'code': code}),
+    );
+    if (response.statusCode >= 400) {
+      throw ApiException(
+        _errorMessage(response, fallback: 'Verification failed'),
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
   Future<void> submitSellerApplication({
     required String storeName,
+    required String studentEmail,
     String? idDocumentUrl,
   }) async {
     final response = await http.post(
@@ -112,6 +144,7 @@ class ApiClient {
       headers: _headers,
       body: jsonEncode({
         'storeName': storeName,
+        'studentEmail': studentEmail,
         'idDocumentUrl': ?idDocumentUrl,
       }),
     );

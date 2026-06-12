@@ -14,6 +14,7 @@ export interface VerificationRequest {
   requestType: string;
   status: string;
   storeName?: string | null;
+  studentEmail?: string | null;
   idDocumentUrl?: string | null;
   aiReviewSummary?: string | null;
   aiRecommendation?: string | null;
@@ -180,6 +181,7 @@ function renderDetail(item: VerificationRequest): string {
     <section class="card">
       <h2>Applicant</h2>
       <p><strong>Campus:</strong> ${escapeHtml(item.university ?? "—")} · ${escapeHtml(item.campus ?? "—")}</p>
+      <p><strong>Student email:</strong> ${escapeHtml(item.studentEmail ?? item.userEmail ?? "—")}</p>
       <p><strong>Store:</strong> ${escapeHtml(item.storeName ?? "—")}</p>
       <p><strong>Status:</strong> ${escapeHtml(item.status)}</p>
     </section>
@@ -317,7 +319,7 @@ async function analyzeStudentIdImage(
     `Applicant name on profile: ${item.userFullName ?? "unknown"}`,
     `University on profile: ${item.university ?? "unknown"}`,
     `Campus on profile: ${item.campus ?? "unknown"}`,
-    `Applicant email: ${item.userEmail ?? "unknown"}`,
+    `Applicant email: ${applicationEmail(item) ?? "unknown"}`,
     "Describe:",
     "1) Is this a readable student/university ID card?",
     "2) What full name appears on the ID?",
@@ -366,7 +368,7 @@ async function synthesizeReview(
     "- Otherwise use review for manual admin check.",
     "- Never recommend reject; admins handle rejection.",
     "",
-    `Applicant: ${item.userFullName ?? "unknown"} (${item.userEmail ?? "no email"})`,
+    `Applicant: ${item.userFullName ?? "unknown"} (${applicationEmail(item) ?? "no email"})`,
     `Profile university: ${item.university ?? "unknown"} · campus: ${item.campus ?? "unknown"}`,
     `Store name: ${item.storeName ?? "n/a"}`,
     `ID image loaded: ${idLoaded ? "yes" : "no"}`,
@@ -486,8 +488,12 @@ function buildFallbackSummary(
   ].join("\n");
 }
 
+function applicationEmail(item: VerificationRequest): string | null | undefined {
+  return item.studentEmail ?? item.userEmail;
+}
+
 async function runAiReview(env: Env, item: VerificationRequest): Promise<AiReviewResult> {
-  const emailCheck = assessEmailCampusMatch(item.userEmail, item.university);
+  const emailCheck = assessEmailCampusMatch(applicationEmail(item), item.university);
 
   let visionAnalysis = "No student ID was attached.";
   let idLoaded = false;

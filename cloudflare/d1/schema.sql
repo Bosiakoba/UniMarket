@@ -14,9 +14,25 @@ CREATE TABLE IF NOT EXISTS Users (
   Campus TEXT NOT NULL DEFAULT 'Main Campus',
   Phone TEXT,
   ProfileComplete INTEGER NOT NULL DEFAULT 0,
+  VerifiedStudentEmail TEXT,
+  VerifiedStudentEmailAt TEXT,
   InterestCategoriesJson TEXT NOT NULL DEFAULT '[]',
   CreatedAt TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS CampusEmailOtps (
+  Id TEXT PRIMARY KEY NOT NULL,
+  UserId TEXT NOT NULL,
+  Email TEXT NOT NULL,
+  CodeHash TEXT NOT NULL,
+  ExpiresAt TEXT NOT NULL,
+  VerifiedAt TEXT,
+  CreatedAt TEXT NOT NULL,
+  FOREIGN KEY (UserId) REFERENCES Users(Id)
+);
+
+CREATE INDEX IF NOT EXISTS IX_CampusEmailOtps_UserId_CreatedAt
+  ON CampusEmailOtps(UserId, CreatedAt);
 
 CREATE UNIQUE INDEX IF NOT EXISTS IX_Users_Email ON Users(Email);
 CREATE INDEX IF NOT EXISTS IX_Users_FirebaseUid ON Users(FirebaseUid);
@@ -27,6 +43,7 @@ CREATE TABLE IF NOT EXISTS VerificationRequests (
   RequestType TEXT NOT NULL,
   Status TEXT NOT NULL,
   StoreName TEXT,
+  StudentEmail TEXT,
   IdDocumentUrl TEXT,
   AiReviewSummary TEXT,
   AiRecommendation TEXT,

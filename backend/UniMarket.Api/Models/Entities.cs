@@ -14,6 +14,8 @@ public class User
     public string Campus { get; set; } = "Main Campus";
     public string? Phone { get; set; }
     public bool ProfileComplete { get; set; }
+    public string? VerifiedStudentEmail { get; set; }
+    public DateTime? VerifiedStudentEmailAt { get; set; }
     public string InterestCategoriesJson { get; set; } = "[]";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<Listing> Listings { get; set; } = new List<Listing>();
@@ -99,6 +101,17 @@ public class Message
     public DateTime SentAt { get; set; } = DateTime.UtcNow;
 }
 
+public class CampusEmailOtp
+{
+    public string Id { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string CodeHash { get; set; } = string.Empty;
+    public DateTime ExpiresAt { get; set; }
+    public DateTime? VerifiedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
 public class VerificationRequest
 {
     public string Id { get; set; } = string.Empty;
@@ -107,6 +120,7 @@ public class VerificationRequest
     public string RequestType { get; set; } = "seller_application";
     public string Status { get; set; } = "Pending";
     public string? StoreName { get; set; }
+    public string? StudentEmail { get; set; }
     public string? IdDocumentUrl { get; set; }
     public string? AiReviewSummary { get; set; }
     public string? AiRecommendation { get; set; }

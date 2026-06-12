@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
@@ -13,6 +14,8 @@ class UniTextField extends StatelessWidget {
     this.keyboardType,
     this.prefixIcon,
     this.onChanged,
+    this.maxLength,
+    this.inputFormatters,
   });
 
   final String hint;
@@ -21,6 +24,8 @@ class UniTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final IconData? prefixIcon;
   final ValueChanged<String>? onChanged;
+  final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +33,8 @@ class UniTextField extends StatelessWidget {
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      maxLength: maxLength,
+      inputFormatters: inputFormatters,
       onChanged: onChanged,
       style: AppTypography.body(color: AppColors.textPrimary),
       decoration: InputDecoration(

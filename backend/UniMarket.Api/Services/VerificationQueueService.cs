@@ -218,6 +218,7 @@ public class VerificationQueueService(AppDbContext db, NotificationService notif
             row.RequestType,
             row.Status,
             row.StoreName,
+            row.StudentEmail,
             row.IdDocumentUrl,
             row.AiReviewSummary,
             row.AiRecommendation,

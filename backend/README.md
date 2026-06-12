@@ -95,6 +95,14 @@ Set on the API server (must match worker `ADMIN_API_KEY` secret):
 Admin__ApiKey=<same-key-as-worker-secret>
 Cloudflare__AiReviewUrl=https://unimarket-admin.unimarket93.workers.dev/api/ai-review
 
+Seller applications require a **verified campus email** (4-digit OTP via Resend) before submit, then are AI-reviewed in the background.
+
+```env
+Resend__ApiKey=re_...
+Resend__FromAddress=UniMarket <noreply@your-verified-domain.com>
+Resend__Enabled=true
+```
+
 Seller applications are AI-reviewed in the background after submit. The worker fetches the ID image via the admin API (including local `/media/...` files), compares profile university and email to the ID, and auto-approves when checks pass; otherwise the request stays pending for the admin dashboard.
 ```
 

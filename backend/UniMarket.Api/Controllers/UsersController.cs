@@ -13,7 +13,8 @@ public class UsersController(
     AppDbContext db,
     CurrentUserService currentUser,
     VerificationQueueService verificationQueue,
-    AiReviewBackgroundDispatcher aiReviewDispatcher) : ControllerBase
+    AiReviewBackgroundDispatcher aiReviewDispatcher,
+    CampusEmailOtpService campusEmailOtp) : ControllerBase
 {
     [HttpGet("me")]
     public async Task<ActionResult<UserProfileDto>> GetMe(CancellationToken ct)
@@ -45,6 +46,56 @@ public class UsersController(
 
         await db.SaveChangesAsync(ct);
         return Ok(await ToProfileAsync(user!, ct));
+    }
+
+    [HttpPost("seller-email/send-otp")]
+    public async Task<IActionResult> SendSellerEmailOtp(
+        [FromBody] CampusEmailOtpRequest request,
+        CancellationToken ct)
+    {
+        var (user, error) = await RequireUserAsync(ct);
+        if (error is not null) return error;
+
+        if (!CampusEmailRules.TryNormalize(request.Email, out var email, out var emailError))
+        {
+            return BadRequest(new { message = emailError });
+        }
+
+        try
+        {
+            await campusEmailOtp.SendOtpAsync(user!, email, ct);
+            return Ok(new CampusEmailOtpResponse(
+                "Verification code sent. Check your student inbox.",
+                false));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("seller-email/verify-otp")]
+    public async Task<IActionResult> VerifySellerEmailOtp(
+        [FromBody] CampusEmailVerifyRequest request,
+        CancellationToken ct)
+    {
+        var (user, error) = await RequireUserAsync(ct);
+        if (error is not null) return error;
+
+        if (!CampusEmailRules.TryNormalize(request.Email, out var email, out var emailError))
+        {
+            return BadRequest(new { message = emailError });
+        }
+
+        try
+        {
+            await campusEmailOtp.VerifyOtpAsync(user!, email, request.Code, ct);
+            return Ok(new CampusEmailOtpResponse("Student email confirmed.", true));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPost("seller-application")]
@@ -81,6 +132,19 @@ public class UsersController(
             return BadRequest(new { message = "Upload your student ID before applying." });
         }
 
+        if (!CampusEmailRules.TryNormalize(
+                request.StudentEmail,
+                out var studentEmail,
+                out var studentEmailError))
+        {
+            return BadRequest(new { message = studentEmailError });
+        }
+
+        if (!campusEmailOtp.IsEmailVerifiedForApplication(user, studentEmail))
+        {
+            return BadRequest(new { message = "Confirm your student email before submitting." });
+        }
+
         var verificationRequest = new VerificationRequest
         {
             Id = Guid.NewGuid().ToString("N"),
@@ -88,6 +152,7 @@ public class UsersController(
             RequestType = VerificationQueueService.TypeSellerApplication,
             Status = "Pending",
             StoreName = storeName,
+            StudentEmail = studentEmail,
             IdDocumentUrl = request.IdDocumentUrl?.Trim(),
         };
 
