@@ -28,30 +28,60 @@ public static class DatabaseSchemaPatcher
             """,
             ct);
 
-        await EnsureColumnAsync(db, "Users", "VerifiedStudentEmail", "TEXT NULL", ct);
-        await EnsureColumnAsync(db, "Users", "VerifiedStudentEmailAt", "TEXT NULL", ct);
-        await EnsureColumnAsync(db, "VerificationRequests", "StudentEmail", "TEXT NULL", ct);
+        await EnsureColumnAsync(
+            db,
+            table: "Users",
+            column: "VerifiedStudentEmail",
+            alterSql: "ALTER TABLE Users ADD COLUMN VerifiedStudentEmail TEXT NULL;",
+            ct);
+        await EnsureColumnAsync(
+            db,
+            table: "Users",
+            column: "VerifiedStudentEmailAt",
+            alterSql: "ALTER TABLE Users ADD COLUMN VerifiedStudentEmailAt TEXT NULL;",
+            ct);
+        await EnsureColumnAsync(
+            db,
+            table: "VerificationRequests",
+            column: "StudentEmail",
+            alterSql: "ALTER TABLE VerificationRequests ADD COLUMN StudentEmail TEXT NULL;",
+            ct);
     }
 
     private static async Task EnsureColumnAsync(
         AppDbContext db,
         string table,
         string column,
-        string definition,
+        string alterSql,
         CancellationToken ct)
     {
-        var columns = await db.Database
-            .SqlQueryRaw<ColumnInfo>($"PRAGMA table_info({table})")
-            .ToListAsync(ct);
-
-        if (columns.Any(c => string.Equals(c.name, column, StringComparison.OrdinalIgnoreCase)))
+        if (await ColumnExistsAsync(db, table, column, ct))
         {
             return;
         }
 
-        await db.Database.ExecuteSqlRawAsync(
-            $"ALTER TABLE {table} ADD COLUMN {column} {definition};",
-            ct);
+        await db.Database.ExecuteSqlRawAsync(alterSql, ct);
+    }
+
+    private static async Task<bool> ColumnExistsAsync(
+        AppDbContext db,
+        string table,
+        string column,
+        CancellationToken ct)
+    {
+        var columns = table switch
+        {
+            "Users" => await db.Database
+                .SqlQueryRaw<ColumnInfo>("PRAGMA table_info(Users)")
+                .ToListAsync(ct),
+            "VerificationRequests" => await db.Database
+                .SqlQueryRaw<ColumnInfo>("PRAGMA table_info(VerificationRequests)")
+                .ToListAsync(ct),
+            _ => throw new InvalidOperationException($"Unsupported schema table: {table}"),
+        };
+
+        return columns.Any(c =>
+            string.Equals(c.name, column, StringComparison.OrdinalIgnoreCase));
     }
 
     private sealed record ColumnInfo(string name);
