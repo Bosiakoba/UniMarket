@@ -191,6 +191,7 @@ function renderDetail(item: VerificationRequest): string {
     </section>
     <section class="card">
       <h2>AI assist</h2>
+      <p class="muted">Runs in the background after submit, or on demand below. AI never auto-approves.</p>
       ${aiBlock}
       <form method="post" action="/requests/${escapeAttr(item.id)}/ai-review" style="margin-top:12px">
         <button class="ai" type="submit">Run Workers AI review</button>
@@ -231,6 +232,15 @@ function escapeAttr(value: string): string {
 interface AiReviewResult {
   summary: string;
   recommendation: "approve" | "review";
+}
+
+interface IdVisionAssessment {
+  isStudentId: boolean;
+  summary: string;
+  nameOnId: string | null;
+  universityOnId: string | null;
+  nameMatchesProfile: boolean;
+  universityMatchesProfile: boolean;
 }
 
 interface EmailCampusCheck {
@@ -309,25 +319,115 @@ async function fetchIdDocumentBytes(
   return new Uint8Array(await response.arrayBuffer());
 }
 
+function extractVisionText(result: unknown): string {
+  if (typeof result === "object" && result && "description" in result) {
+    return String((result as { description?: string }).description ?? result);
+  }
+  if (typeof result === "object" && result && "response" in result) {
+    return String((result as { response?: string }).response ?? result);
+  }
+  return JSON.stringify(result);
+}
+
+const NON_ID_IMAGE_SIGNALS = [
+  "not a student",
+  "not an id",
+  "not a id",
+  "is not a student",
+  "is not an id",
+  "not a university id",
+  "not a school id",
+  "advertisement",
+  "advertising",
+  "promotional",
+  "promotion",
+  "flyer",
+  "poster",
+  "marketing",
+  "jersey",
+  "football",
+  "soccer",
+  "product photo",
+  "screenshot",
+  "meme",
+  "whatsapp",
+  "social media",
+  "banner",
+  "logo design",
+  "e-commerce",
+];
+
+function visionLooksLikeNonStudentId(vision: string): boolean {
+  const normalized = vision.toLowerCase();
+  return NON_ID_IMAGE_SIGNALS.some((signal) => normalized.includes(signal));
+}
+
+function parseVisionAssessment(
+  visionText: string,
+  item: VerificationRequest,
+): IdVisionAssessment {
+  const normalized = visionText.toLowerCase();
+  const profileName = (item.userFullName ?? "").trim().toLowerCase();
+  const profileUniversity = (item.university ?? "").trim().toLowerCase();
+
+  const explicitNo =
+    /\b(no|not)\b.{0,40}\b(student id|id card|university id|school id)\b/i.test(
+      visionText,
+    ) || visionLooksLikeNonStudentId(visionText);
+
+  const explicitYes =
+    /\b(yes|this is|appears to be|looks like)\b.{0,40}\b(student id|id card|university id|school id)\b/i.test(
+      visionText,
+    );
+
+  const isStudentId = explicitYes && !explicitNo && !visionLooksLikeNonStudentId(visionText);
+
+  const nameMatchesProfile =
+    profileName.length > 0 &&
+    normalized.includes(profileName) &&
+    (normalized.includes("match") ||
+      normalized.includes("same") ||
+      normalized.includes("consistent"));
+
+  const universityTokens = tokenizeUniversity(profileUniversity);
+  const universityMatchesProfile =
+    universityTokens.length > 0 &&
+    universityTokens.some((token) => normalized.includes(token)) &&
+    (normalized.includes("match") ||
+      normalized.includes("same") ||
+      normalized.includes("consistent"));
+
+  return {
+    isStudentId,
+    summary: visionText.trim(),
+    nameOnId: null,
+    universityOnId: null,
+    nameMatchesProfile: isStudentId && nameMatchesProfile,
+    universityMatchesProfile: isStudentId && universityMatchesProfile,
+  };
+}
+
 async function analyzeStudentIdImage(
   env: Env,
   imageBytes: Uint8Array,
   item: VerificationRequest,
-): Promise<string> {
+): Promise<IdVisionAssessment> {
   const prompt = [
-    "You are reviewing a student ID photo for a campus marketplace seller application.",
-    `Applicant name on profile: ${item.userFullName ?? "unknown"}`,
-    `University on profile: ${item.university ?? "unknown"}`,
-    `Campus on profile: ${item.campus ?? "unknown"}`,
-    `Applicant email: ${applicationEmail(item) ?? "unknown"}`,
-    "Describe:",
-    "1) Is this a readable student/university ID card?",
-    "2) What full name appears on the ID?",
-    "3) What university or school name appears on the ID?",
-    "4) Does the ID university match the profile university?",
-    "5) Does the ID name match the profile name?",
-    "6) Any fraud or quality concerns?",
-    "Be concise and factual.",
+    "You are reviewing an uploaded photo for a campus marketplace seller application.",
+    "The applicant claims this image is their student/university ID card.",
+    `Profile name: ${item.userFullName ?? "unknown"}`,
+    `Profile university: ${item.university ?? "unknown"}`,
+    "",
+    "Answer in plain text with these exact sections:",
+    "IS_STUDENT_ID: yes or no",
+    "WHAT_IMAGE_SHOWS: one sentence describing what the image actually is",
+    "NAME_ON_ID: name visible on the document, or none",
+    "UNIVERSITY_ON_ID: school/university visible on the document, or none",
+    "NAME_MATCHES_PROFILE: yes, no, or unclear",
+    "UNIVERSITY_MATCHES_PROFILE: yes, no, or unclear",
+    "NOTES: any fraud or quality concerns",
+    "",
+    "If the image is an advertisement, product photo, sports graphic, flyer, screenshot, or anything other than a student ID card, set IS_STUDENT_ID: no.",
   ].join("\n");
 
   try {
@@ -337,155 +437,125 @@ async function analyzeStudentIdImage(
       max_tokens: 512,
     });
 
-    if (typeof result === "object" && result && "description" in result) {
-      return String((result as { description?: string }).description ?? result);
+    const visionText = extractVisionText(result);
+    const parsed = parseVisionAssessment(visionText, item);
+
+    const isStudentIdLine = visionText.match(/IS_STUDENT_ID:\s*(yes|no)/i);
+    if (isStudentIdLine) {
+      parsed.isStudentId = isStudentIdLine[1].toLowerCase() === "yes";
     }
-    if (typeof result === "object" && result && "response" in result) {
-      return String((result as { response?: string }).response ?? result);
+
+    const nameMatchLine = visionText.match(/NAME_MATCHES_PROFILE:\s*(yes|no|unclear)/i);
+    if (nameMatchLine) {
+      parsed.nameMatchesProfile =
+        parsed.isStudentId && nameMatchLine[1].toLowerCase() === "yes";
     }
-    return JSON.stringify(result);
+
+    const universityMatchLine = visionText.match(
+      /UNIVERSITY_MATCHES_PROFILE:\s*(yes|no|unclear)/i,
+    );
+    if (universityMatchLine) {
+      parsed.universityMatchesProfile =
+        parsed.isStudentId && universityMatchLine[1].toLowerCase() === "yes";
+    }
+
+  if (!parsed.isStudentId) {
+      parsed.nameMatchesProfile = false;
+      parsed.universityMatchesProfile = false;
+    }
+
+    return parsed;
   } catch {
-    return "Vision model could not analyze the student ID image.";
+    return {
+      isStudentId: false,
+      summary: "Vision model could not analyze the uploaded image.",
+      nameOnId: null,
+      universityOnId: null,
+      nameMatchesProfile: false,
+      universityMatchesProfile: false,
+    };
   }
-}
-
-async function synthesizeReview(
-  env: Env,
-  item: VerificationRequest,
-  emailCheck: EmailCampusCheck,
-  visionAnalysis: string,
-  idLoaded: boolean,
-): Promise<AiReviewResult> {
-  const prompt = [
-    "You are the automated reviewer for a campus marketplace seller application.",
-    "Return ONLY valid JSON with this shape:",
-    '{"recommendation":"approve"|"review","summary":"markdown bullet summary"}',
-    "",
-    "Rules:",
-    "- recommendation must be approve ONLY when the student ID is readable, looks genuine,",
-    "  the university on the ID matches the profile university, and the name on the ID matches the profile name.",
-    "- If email is a personal provider (gmail/outlook/etc), still approve when ID + university + name strongly match.",
-    "- Otherwise use review for manual admin check.",
-    "- Never recommend reject; admins handle rejection.",
-    "",
-    `Applicant: ${item.userFullName ?? "unknown"} (${applicationEmail(item) ?? "no email"})`,
-    `Profile university: ${item.university ?? "unknown"} · campus: ${item.campus ?? "unknown"}`,
-    `Store name: ${item.storeName ?? "n/a"}`,
-    `ID image loaded: ${idLoaded ? "yes" : "no"}`,
-    "",
-    "Email / campus check:",
-    emailCheck.summary,
-    "",
-    "Student ID vision analysis:",
-    visionAnalysis,
-  ].join("\n");
-
-  try {
-    const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const text =
-      typeof result === "object" && result && "response" in result
-        ? String((result as { response?: string }).response ?? "")
-        : JSON.stringify(result);
-
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]) as {
-        recommendation?: string;
-        summary?: string;
-      };
-      const recommendation =
-        parsed.recommendation?.toLowerCase() === "approve" ? "approve" : "review";
-      const summary =
-        typeof parsed.summary === "string" && parsed.summary.trim().length > 0
-          ? parsed.summary.trim()
-          : buildFallbackSummary(emailCheck, visionAnalysis, idLoaded, recommendation);
-      return { summary, recommendation };
-    }
-  } catch {
-    // fall through to heuristic review
-  }
-
-  const heuristic = decideHeuristicRecommendation(
-    emailCheck,
-    visionAnalysis,
-    idLoaded,
-  );
-  return {
-    recommendation: heuristic,
-    summary: buildFallbackSummary(emailCheck, visionAnalysis, idLoaded, heuristic),
-  };
 }
 
 function decideHeuristicRecommendation(
   emailCheck: EmailCampusCheck,
-  visionAnalysis: string,
+  vision: IdVisionAssessment,
   idLoaded: boolean,
 ): "approve" | "review" {
-  if (!idLoaded) return "review";
+  if (!idLoaded || !vision.isStudentId) return "review";
+  if (visionLooksLikeNonStudentId(vision.summary)) return "review";
 
-  const vision = visionAnalysis.toLowerCase();
-  if (
-    vision.includes("not a student") ||
-    vision.includes("not an id") ||
-    vision.includes("could not analyze")
-  ) {
-    return "review";
-  }
-
-  const idReadable =
-    !vision.includes("unreadable") &&
-    (vision.includes("student") ||
-      vision.includes("id card") ||
-      vision.includes("university"));
-
-  const universityMatches =
-    vision.includes("university") &&
-    (vision.includes("match") ||
-      vision.includes("same") ||
-      vision.includes("consistent"));
-
-  const nameMatches =
-    vision.includes("name") &&
-    (vision.includes("match") ||
-      vision.includes("same") ||
-      vision.includes("consistent"));
-
-  const identityStrong = idReadable && universityMatches && nameMatches;
+  const identityStrong =
+    vision.nameMatchesProfile && vision.universityMatchesProfile;
   const campusEmailStrong =
     emailCheck.isCampusDomain && emailCheck.domainMatchesUniversity;
 
   if (identityStrong && campusEmailStrong) return "approve";
-  if (identityStrong && emailCheck.isCampusDomain) return "approve";
-  if (identityStrong) return "approve";
-
   return "review";
 }
 
 function buildFallbackSummary(
   emailCheck: EmailCampusCheck,
-  visionAnalysis: string,
+  vision: IdVisionAssessment,
   idLoaded: boolean,
   recommendation: "approve" | "review",
 ): string {
+  const idSection = !idLoaded
+    ? "Could not load the uploaded image from the API for analysis."
+    : !vision.isStudentId
+      ? `Uploaded image does not appear to be a student ID.\n${vision.summary}`
+      : vision.summary;
+
   return [
-    "Automated seller application review",
+    "Automated seller application review (assist only — admin decides)",
     "",
     "**Email & campus**",
     emailCheck.summary,
     "",
-    "**Student ID image**",
-    idLoaded
-      ? visionAnalysis
-      : "Could not load the ID image from the API for analysis.",
+    "**Uploaded document**",
+    idSection,
     "",
     `**Recommendation:** ${recommendation}`,
     recommendation === "review"
       ? "Queued for manual admin review."
-      : "Checks passed — auto-approval eligible.",
+      : "Strong match — admin may approve quickly.",
   ].join("\n");
+}
+
+function synthesizeReview(
+  emailCheck: EmailCampusCheck,
+  vision: IdVisionAssessment,
+  idLoaded: boolean,
+): AiReviewResult {
+  if (!idLoaded) {
+    return {
+      recommendation: "review",
+      summary: buildFallbackSummary(
+        emailCheck,
+        vision,
+        idLoaded,
+        "review",
+      ),
+    };
+  }
+
+  if (!vision.isStudentId || visionLooksLikeNonStudentId(vision.summary)) {
+    return {
+      recommendation: "review",
+      summary: buildFallbackSummary(
+        emailCheck,
+        vision,
+        idLoaded,
+        "review",
+      ),
+    };
+  }
+
+  const heuristic = decideHeuristicRecommendation(emailCheck, vision, idLoaded);
+  return {
+    recommendation: heuristic,
+    summary: buildFallbackSummary(emailCheck, vision, idLoaded, heuristic),
+  };
 }
 
 function applicationEmail(item: VerificationRequest): string | null | undefined {
@@ -495,17 +565,31 @@ function applicationEmail(item: VerificationRequest): string | null | undefined 
 async function runAiReview(env: Env, item: VerificationRequest): Promise<AiReviewResult> {
   const emailCheck = assessEmailCampusMatch(applicationEmail(item), item.university);
 
-  let visionAnalysis = "No student ID was attached.";
+  let vision: IdVisionAssessment = {
+    isStudentId: false,
+    summary: "No student ID image was attached.",
+    nameOnId: null,
+    universityOnId: null,
+    nameMatchesProfile: false,
+    universityMatchesProfile: false,
+  };
   let idLoaded = false;
 
   if (item.idDocumentUrl) {
     const imageBytes = await fetchIdDocumentBytes(env, item.id);
     if (imageBytes && imageBytes.length > 0) {
       idLoaded = true;
-      visionAnalysis = await analyzeStudentIdImage(env, imageBytes, item);
+      vision = await analyzeStudentIdImage(env, imageBytes, item);
     } else {
-      visionAnalysis =
-        "The API could not provide the student ID image for vision review. Manual check required.";
+      vision = {
+        isStudentId: false,
+        summary:
+          "The API could not provide the uploaded image for vision review. Manual check required.",
+        nameOnId: null,
+        universityOnId: null,
+        nameMatchesProfile: false,
+        universityMatchesProfile: false,
+      };
     }
   }
 
@@ -515,15 +599,15 @@ async function runAiReview(env: Env, item: VerificationRequest): Promise<AiRevie
       summary: [
         "Verified badge requests always require manual admin review.",
         emailCheck.summary,
-        visionAnalysis,
+        vision.summary,
       ].join("\n\n"),
     };
   }
 
-  return synthesizeReview(env, item, emailCheck, visionAnalysis, idLoaded);
+  return synthesizeReview(emailCheck, vision, idLoaded);
 }
 
-async function persistAiReviewAndMaybeApprove(
+async function persistAiReview(
   env: Env,
   item: VerificationRequest,
   review: AiReviewResult,
@@ -532,16 +616,6 @@ async function persistAiReviewAndMaybeApprove(
     method: "POST",
     body: JSON.stringify(review),
   });
-
-  if (
-    review.recommendation === "approve" &&
-    item.requestType === "seller_application" &&
-    item.status === "Pending"
-  ) {
-    await apiFetch(env, `/api/admin/verification-requests/${item.id}/approve`, {
-      method: "POST",
-    });
-  }
 }
 
 async function processRequestReview(
@@ -549,7 +623,7 @@ async function processRequestReview(
   item: VerificationRequest,
 ): Promise<AiReviewResult> {
   const review = await runAiReview(env, item);
-  await persistAiReviewAndMaybeApprove(env, item, review);
+  await persistAiReview(env, item, review);
   return review;
 }
 
@@ -676,21 +750,7 @@ export default {
       if (!response.ok) {
         return new Response(await response.text(), { status: response.status });
       }
-      let item = (await response.json()) as VerificationRequest;
-      if (
-        item.status === "Pending" &&
-        !item.aiReviewSummary &&
-        item.requestType === "seller_application"
-      ) {
-        await processRequestReview(env, item);
-        const refreshed = await apiFetch(
-          env,
-          `/api/admin/verification-requests/${detailMatch[1]}`,
-        );
-        if (refreshed.ok) {
-          item = (await refreshed.json()) as VerificationRequest;
-        }
-      }
+      const item = (await response.json()) as VerificationRequest;
       return renderPage(renderDetail(item));
     }
 

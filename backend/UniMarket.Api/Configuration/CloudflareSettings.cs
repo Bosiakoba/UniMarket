@@ -50,4 +50,20 @@ public class CloudflareSettings
     public bool CanUploadFiles => IsR2Configured || AllowLocalUploadFallback;
 
     public bool IsAiReviewConfigured => !string.IsNullOrWhiteSpace(AiReviewUrl);
+
+    public IReadOnlyList<string> GetR2MissingFields()
+    {
+        if (!R2Enabled)
+        {
+            return ["R2Enabled"];
+        }
+
+        var missing = new List<string>();
+        if (string.IsNullOrWhiteSpace(R2AccessKeyId)) missing.Add("R2AccessKeyId");
+        if (string.IsNullOrWhiteSpace(R2SecretAccessKey)) missing.Add("R2SecretAccessKey");
+        if (string.IsNullOrWhiteSpace(R2BucketName)) missing.Add("R2BucketName");
+        if (string.IsNullOrWhiteSpace(R2Endpoint)) missing.Add("R2Endpoint");
+        if (string.IsNullOrWhiteSpace(R2PublicBaseUrl)) missing.Add("R2PublicBaseUrl");
+        return missing;
+    }
 }

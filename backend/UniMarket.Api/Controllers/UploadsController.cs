@@ -44,7 +44,12 @@ public class UploadsController(
 
         if (!storage.CanUpload)
         {
-            return StatusCode(503, new { message = "Image upload is not configured on the server." });
+            return StatusCode(503, new
+            {
+                message = "Image upload is not configured on the server. "
+                    + "Set Cloudflare R2 credentials in .env (see GET /health → integrations.cloudflare.r2.missing) "
+                    + "or enable Cloudflare__AllowLocalUploadFallback=true for dev.",
+            });
         }
 
         if (file.Length == 0)

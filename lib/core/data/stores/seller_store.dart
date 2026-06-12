@@ -279,12 +279,27 @@ class SellerStore extends ChangeNotifier {
         studentEmail: data.studentEmail,
         idDocumentUrl: idDocumentUrl,
       );
+      final user = await client.fetchMe();
+      applyUserProfile(user);
+      notifyListeners();
       return null;
     } catch (error) {
+      final message = error.toString();
+      if (message.contains('already under review')) {
+        try {
+          final user = await client.fetchMe();
+          applyUserProfile(user);
+          notifyListeners();
+          return null;
+        } catch (_) {
+          // fall through to reset below
+        }
+      }
+
       sellerApplicationStatus = SellerApplicationStatus.none;
       sellerApplication = null;
       notifyListeners();
-      return error.toString();
+      return message;
     }
   }
 

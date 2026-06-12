@@ -104,7 +104,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (!useD1Primary)
+var cloudflareAtRuntime = app.Services.GetRequiredService<IOptions<CloudflareSettings>>().Value;
+if (cloudflareAtRuntime.AllowLocalUploadFallback && !cloudflareAtRuntime.IsR2Configured)
 {
     var localUploadRoot = Path.Combine(app.Environment.ContentRootPath, "data", "uploads");
     Directory.CreateDirectory(localUploadRoot);
@@ -198,6 +199,7 @@ app.MapGet("/health", (
                     enabled = cf.R2Enabled,
                     configured = cf.IsR2Configured,
                     localUploadFallback = cf.AllowLocalUploadFallback && !cf.IsR2Configured,
+                    missing = cf.IsR2Configured ? Array.Empty<string>() : cf.GetR2MissingFields(),
                 },
                 aiReview = new
                 {
