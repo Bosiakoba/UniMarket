@@ -94,6 +94,8 @@ Set on the API server (must match worker `ADMIN_API_KEY` secret):
 ```env
 Admin__ApiKey=<same-key-as-worker-secret>
 Cloudflare__AiReviewUrl=https://unimarket-admin.unimarket93.workers.dev/api/ai-review
+
+Seller applications are AI-reviewed in the background after submit. The worker fetches the ID image via the admin API (including local `/media/...` files), compares profile university and email to the ID, and auto-approves when checks pass; otherwise the request stays pending for the admin dashboard.
 ```
 
 The worker calls `UNIMARKET_API_URL` (`https://unimarket-api.youngfuturetechnology.xyz` in `wrangler.toml`). Your API must be publicly reachable at that URL for approve/reject and AI review to work.

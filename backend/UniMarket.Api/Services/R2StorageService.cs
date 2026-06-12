@@ -125,6 +125,83 @@ public class R2StorageService : IDisposable
         return $"{publicBase}/media/{key}";
     }
 
+    public async Task<(Stream Stream, string ContentType)?> TryOpenDocumentAsync(
+        string idDocumentUrl,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(idDocumentUrl))
+        {
+            return null;
+        }
+
+        if (!TryResolveObjectKey(idDocumentUrl, out var key))
+        {
+            return null;
+        }
+
+        if (UsesLocalFallback || !IsR2Configured)
+        {
+            var filePath = Path.Combine(
+                _localUploadRoot,
+                key.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(filePath))
+            {
+                return null;
+            }
+
+            return (File.OpenRead(filePath), ContentTypeForPath(filePath));
+        }
+
+        var response = await Client.GetObjectAsync(
+            new GetObjectRequest
+            {
+                BucketName = _settings.R2BucketName,
+                Key = key,
+            },
+            ct);
+
+        var contentType = string.IsNullOrWhiteSpace(response.Headers.ContentType)
+            ? ContentTypeForPath(key)
+            : response.Headers.ContentType;
+
+        return (response.ResponseStream, contentType);
+    }
+
+    public bool TryResolveObjectKey(string idDocumentUrl, out string key)
+    {
+        key = string.Empty;
+        if (!Uri.TryCreate(idDocumentUrl, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        var path = uri.AbsolutePath.TrimStart('/');
+        if (path.StartsWith("media/", StringComparison.OrdinalIgnoreCase))
+        {
+            path = path["media/".Length..];
+        }
+
+        var marker = "seller-documents/";
+        var markerIndex = path.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex < 0)
+        {
+            return false;
+        }
+
+        key = path[markerIndex..];
+        return key.Length > marker.Length;
+    }
+
+    private static string ContentTypeForPath(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".heic" => "image/heic",
+            ".heif" => "image/heif",
+            _ => "image/jpeg",
+        };
+
     public void Dispose()
     {
         if (_disposed) return;

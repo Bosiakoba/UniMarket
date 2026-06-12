@@ -13,7 +13,7 @@ public class UsersController(
     AppDbContext db,
     CurrentUserService currentUser,
     VerificationQueueService verificationQueue,
-    CloudflareAiReviewService aiReview) : ControllerBase
+    AiReviewBackgroundDispatcher aiReviewDispatcher) : ControllerBase
 {
     [HttpGet("me")]
     public async Task<ActionResult<UserProfileDto>> GetMe(CancellationToken ct)
@@ -94,7 +94,7 @@ public class UsersController(
         db.VerificationRequests.Add(verificationRequest);
 
         await db.SaveChangesAsync(ct);
-        await aiReview.TryReviewAsync(verificationRequest.Id, ct);
+        aiReviewDispatcher.Enqueue(verificationRequest.Id);
         return Ok(new { status = "Pending", requestType = VerificationQueueService.TypeSellerApplication });
     }
 
@@ -143,7 +143,7 @@ public class UsersController(
         db.VerificationRequests.Add(verificationRequest);
 
         await db.SaveChangesAsync(ct);
-        await aiReview.TryReviewAsync(verificationRequest.Id, ct);
+        aiReviewDispatcher.Enqueue(verificationRequest.Id);
         return Ok(new { status = "Pending", requestType = VerificationQueueService.TypeVerifiedBadge });
     }
 

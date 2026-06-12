@@ -10,6 +10,7 @@ namespace UniMarket.Api.Controllers;
 [Route("api/admin/verification-requests")]
 public class AdminVerificationController(
     VerificationQueueService queue,
+    R2StorageService storage,
     IOptions<AdminSettings> adminSettings) : ControllerBase
 {
     [HttpGet]
@@ -70,6 +71,26 @@ public class AdminVerificationController(
         {
             return BadRequest(new { message = ex.Message });
         }
+    }
+
+    [HttpGet("{id}/id-document")]
+    public async Task<IActionResult> GetIdDocument(string id, CancellationToken ct)
+    {
+        if (!IsAuthorized()) return Unauthorized();
+
+        var item = await queue.GetAsync(id, ct);
+        if (item is null || string.IsNullOrWhiteSpace(item.IdDocumentUrl))
+        {
+            return NotFound();
+        }
+
+        var opened = await storage.TryOpenDocumentAsync(item.IdDocumentUrl, ct);
+        if (opened is null)
+        {
+            return NotFound(new { message = "ID document file is not available on the server." });
+        }
+
+        return File(opened.Value.Stream, opened.Value.ContentType);
     }
 
     [HttpPost("{id}/ai-review")]

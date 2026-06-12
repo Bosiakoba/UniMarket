@@ -1,6 +1,15 @@
 # UniMarket Admin Worker
 
-Cloudflare Worker dashboard for reviewing **seller applications** and **verified badge** requests. It proxies the UniMarket API admin queue and can run optional **Workers AI** assist on student ID submissions.
+Cloudflare Worker dashboard for reviewing **seller applications** and **verified badge** requests. It proxies the UniMarket API admin queue and runs **Workers AI** vision review on student ID photos in the background when someone applies.
+
+## Automated seller review
+
+When a user submits a seller application, the API enqueues a background AI review that:
+
+1. Fetches the student ID image through `GET /api/admin/verification-requests/{id}/id-document` (works for local `/media/...` uploads — no public URL required).
+2. Runs **LLaVA** vision on the ID to read the name and university on the card.
+3. Compares profile **university** and **email domain** to the ID and campus email rules.
+4. **Auto-approves** when recommendation is `approve`; otherwise leaves the request **Pending** with an AI summary for manual review on this dashboard.
 
 ## Prerequisites
 

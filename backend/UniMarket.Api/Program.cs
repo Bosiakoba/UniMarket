@@ -57,6 +57,7 @@ builder.Services.AddScoped<SaleConfirmationService>();
 builder.Services.AddScoped<FirebaseNotificationService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddHttpClient<CloudflareAiReviewService>();
+builder.Services.AddSingleton<AiReviewBackgroundDispatcher>();
 builder.Services.AddSingleton<D1SchemaInitializer>();
 
 builder.Services.AddCors(options =>

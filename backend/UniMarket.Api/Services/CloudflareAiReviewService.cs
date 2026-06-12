@@ -50,6 +50,24 @@ public class CloudflareAiReviewService(
                 review.Summary,
                 review.Recommendation,
                 ct);
+
+            if (!string.Equals(review.Recommendation, "approve", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var current = await verificationQueue.GetAsync(requestId, ct);
+            if (current is null ||
+                current.Status != "Pending" ||
+                current.RequestType != VerificationQueueService.TypeSellerApplication)
+            {
+                return;
+            }
+
+            await verificationQueue.ApproveAsync(requestId, ct);
+            logger.LogInformation(
+                "Auto-approved seller application {RequestId} after AI review.",
+                requestId);
         }
         catch (Exception ex)
         {
