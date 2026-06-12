@@ -74,7 +74,7 @@ public class D1EntitySqlBuilder(D1Client d1, ILogger<D1EntitySqlBuilder> logger)
         IReadOnlyList<D1CapturedChange> changes,
         CancellationToken ct = default)
     {
-        foreach (var captured in changes.OrderBy(c => c.State == EntityState.Deleted ? 0 : 1))
+        foreach (var captured in changes.OrderBy(SyncSortKey))
         {
             var entry = captured.Entry;
             var table = entry.Metadata.GetTableName()
@@ -187,4 +187,30 @@ public class D1EntitySqlBuilder(D1Client d1, ILogger<D1EntitySqlBuilder> logger)
             float fl => fl,
             _ => value,
         };
+
+    private static int SyncSortKey(D1CapturedChange captured)
+    {
+        var table = captured.Entry.Metadata.GetTableName() ?? string.Empty;
+        var tableIndex = Array.FindIndex(
+            HydrationOrder,
+            name => string.Equals(name, table, StringComparison.OrdinalIgnoreCase));
+        if (tableIndex < 0)
+        {
+            tableIndex = HydrationOrder.Length;
+        }
+
+        var stateRank = captured.State switch
+        {
+            EntityState.Deleted => 0,
+            EntityState.Modified => 1,
+            EntityState.Added => 2,
+            _ => 3,
+        };
+
+        var tableRank = captured.State == EntityState.Deleted
+            ? -tableIndex
+            : tableIndex;
+
+        return stateRank * 100 + tableRank;
+    }
 }

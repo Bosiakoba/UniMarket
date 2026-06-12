@@ -203,7 +203,7 @@ public class ListingsController(
         if (listing is null) return NotFound();
         if (listing.UserId != currentUser.UserId) return Forbid();
 
-        db.Listings.Remove(listing);
+        await ListingDeletionService.DeleteAsync(db, listing, ct);
         await db.SaveChangesAsync(ct);
         return NoContent();
     }
