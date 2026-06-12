@@ -57,13 +57,11 @@ public class UploadsController(
             return BadRequest(new { message = $"{label} must be 10 MB or smaller." });
         }
 
-        var contentType = string.IsNullOrWhiteSpace(file.ContentType)
-            ? "image/jpeg"
-            : file.ContentType;
+        var contentType = ResolveContentType(file);
 
         if (!AllowedContentTypes.Contains(contentType))
         {
-            return BadRequest(new { message = "Only JPG, PNG, and WEBP photos are supported." });
+            return BadRequest(new { message = "Only JPG, PNG, WEBP, and HEIC photos are supported." });
         }
 
         await using var stream = file.OpenReadStream();
@@ -74,5 +72,36 @@ public class UploadsController(
             ct);
 
         return Ok(new UploadPhotoResponse(url));
+    }
+
+    private static string ResolveContentType(IFormFile file)
+    {
+        var reported = file.ContentType?
+            .Split(';', 2)[0]
+            .Trim();
+
+        if (!string.IsNullOrWhiteSpace(reported)
+            && !reported.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase)
+            && !reported.Equals("binary/octet-stream", StringComparison.OrdinalIgnoreCase)
+            && !reported.EndsWith("/*", StringComparison.Ordinal))
+        {
+            return reported;
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            extension = Path.GetExtension(file.Name);
+        }
+
+        return extension.ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".heic" => "image/heic",
+            ".heif" => "image/heif",
+            _ => "image/jpeg",
+        };
     }
 }

@@ -32,6 +32,7 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
   final _storeController = TextEditingController();
   bool _idUploaded = false;
   String? _idDocumentPath;
+  String? _idDocumentMimeType;
   var _submitting = false;
 
   static final _picker = ImagePicker();
@@ -61,6 +62,7 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
     if (file == null) return;
     setState(() {
       _idDocumentPath = file.path;
+      _idDocumentMimeType = file.mimeType;
       _idUploaded = true;
     });
   }
@@ -96,7 +98,10 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
 
     try {
       if (_idDocumentPath != null) {
-        idDocumentUrl = await client.uploadSellerDocument(_idDocumentPath!);
+        idDocumentUrl = await client.uploadSellerDocument(
+          _idDocumentPath!,
+          mimeType: _idDocumentMimeType,
+        );
       }
     } catch (error) {
       if (!mounted) return;

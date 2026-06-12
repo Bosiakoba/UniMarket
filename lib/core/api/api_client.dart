@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../constants/app_assets.dart';
 import '../models/app_user.dart';
@@ -161,13 +162,18 @@ class ApiClient {
     return list.cast<Map<String, dynamic>>();
   }
 
-  Future<String> uploadListingPhoto(String filePath) async {
+  Future<String> uploadListingPhoto(
+    String filePath, {
+    String? mimeType,
+  }) async {
     final request = http.MultipartRequest(
       'POST',
       _uri('/api/uploads/listing-photos'),
     );
     request.headers.addAll(_authHeaders);
-    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+    request.files.add(
+      await _multipartImageFile(filePath, mimeType: mimeType),
+    );
 
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
@@ -179,13 +185,18 @@ class ApiClient {
     return url;
   }
 
-  Future<String> uploadSellerDocument(String filePath) async {
+  Future<String> uploadSellerDocument(
+    String filePath, {
+    String? mimeType,
+  }) async {
     final request = http.MultipartRequest(
       'POST',
       _uri('/api/uploads/seller-documents'),
     );
     request.headers.addAll(_authHeaders);
-    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+    request.files.add(
+      await _multipartImageFile(filePath, mimeType: mimeType),
+    );
 
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
@@ -763,4 +774,41 @@ abstract final class ListingMapper {
     }
     return 'Earlier';
   }
+}
+
+String _resolveImageMimeType(String filePath, {String? mimeType}) {
+  final reported = mimeType?.split(';').first.trim().toLowerCase();
+  if (reported != null &&
+      reported.isNotEmpty &&
+      reported != 'application/octet-stream') {
+    return reported;
+  }
+
+  final dot = filePath.lastIndexOf('.');
+  final ext = dot >= 0 ? filePath.substring(dot + 1).toLowerCase() : '';
+  return switch (ext) {
+    'png' => 'image/png',
+    'webp' => 'image/webp',
+    'heic' => 'image/heic',
+    'heif' => 'image/heif',
+    'jpg' || 'jpeg' => 'image/jpeg',
+    _ => 'image/jpeg',
+  };
+}
+
+Future<http.MultipartFile> _multipartImageFile(
+  String filePath, {
+  String? mimeType,
+}) async {
+  final resolved = _resolveImageMimeType(filePath, mimeType: mimeType);
+  final slash = resolved.indexOf('/');
+  final mediaType = slash > 0
+      ? MediaType(resolved.substring(0, slash), resolved.substring(slash + 1))
+      : MediaType('image', 'jpeg');
+
+  return http.MultipartFile.fromPath(
+    'file',
+    filePath,
+    contentType: mediaType,
+  );
 }
