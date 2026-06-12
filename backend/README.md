@@ -2,7 +2,7 @@
 
 Main backend for the Flutter app. Matches `md/deep-research-report.md` and prototype stores in `lib/core/data/stores/`.
 
-**Firebase Auth** and **Cloudflare D1/R2** are stubbed for now — swap implementations without changing controller contracts.
+**Firebase Auth**, **SQLite persistence** (D1-compatible schema), and **Cloudflare R2/D1** integrations are wired. Data survives API restarts in `data/unimarket.db`.
 
 ## Home server (demo day)
 
@@ -66,8 +66,16 @@ cp backend/UniMarket.Api/.env.example backend/UniMarket.Api/.env
 | `Cloudflare__R2BucketName` | R2 bucket (default `unimarket-assets`) |
 | `Cloudflare__R2Endpoint` | `https://<account_id>.r2.cloudflarestorage.com` |
 | `Cloudflare__R2Enabled` | `true` when R2 is wired |
+| `Cloudflare__R2PublicBaseUrl` | Public R2 bucket URL (e.g. `https://pub-xxx.r2.dev`) |
+| `Cloudflare__AllowLocalUploadFallback` | `true` saves uploads to `data/uploads/` when R2 is off |
+| `ConnectionStrings__Default` | SQLite file path (default `Data Source=data/unimarket.db`) |
+| `Api__PublicBaseUrl` | LAN URL for local upload links (e.g. `http://192.168.0.165:5080`) |
 
 3. Start the API — `.env` is loaded automatically from the project folder.
+
+**Database:** User profiles (`ProfileComplete`, interests, seller status) are stored in SQLite and persist across restarts. Enable `Cloudflare__D1Enabled=true` to auto-apply `cloudflare/d1/schema.sql` to your remote D1 (for Workers/admin); the home server continues to use the SQLite file as its primary store.
+
+**Uploads:** With R2 disabled, seller ID photos save to `data/uploads/` and are served at `/media/...` when `Cloudflare__AllowLocalUploadFallback=true`.
 
 4. Check readiness (no secrets returned):
 

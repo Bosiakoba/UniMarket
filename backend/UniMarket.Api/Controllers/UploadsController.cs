@@ -42,7 +42,7 @@ public class UploadsController(
     {
         if (!currentUser.IsAuthenticated) return Unauthorized();
 
-        if (!storage.IsConfigured)
+        if (!storage.CanUpload)
         {
             return StatusCode(503, new { message = "Image upload is not configured on the server." });
         }

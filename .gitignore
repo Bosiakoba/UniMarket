@@ -49,6 +49,9 @@ app.*.map.json
 **/bin/
 **/obj/
 
+# API persistent data (SQLite DB + local uploads)
+backend/UniMarket.Api/data/
+
 # Secrets & credentials — NEVER commit to GitHub
 .env
 .env.*

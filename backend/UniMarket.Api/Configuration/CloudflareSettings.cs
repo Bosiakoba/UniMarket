@@ -14,6 +14,9 @@ public class CloudflareSettings
 
     public bool R2Enabled { get; set; }
 
+    /// <summary>When R2 is off, save uploads under data/uploads on the API server.</summary>
+    public bool AllowLocalUploadFallback { get; set; } = true;
+
     public string R2AccessKeyId { get; set; } = string.Empty;
 
     public string R2SecretAccessKey { get; set; } = string.Empty;
@@ -42,6 +45,8 @@ public class CloudflareSettings
         !string.IsNullOrWhiteSpace(R2BucketName) &&
         !string.IsNullOrWhiteSpace(R2Endpoint) &&
         !string.IsNullOrWhiteSpace(R2PublicBaseUrl);
+
+    public bool CanUploadFiles => IsR2Configured || AllowLocalUploadFallback;
 
     public bool IsAiReviewConfigured => !string.IsNullOrWhiteSpace(AiReviewUrl);
 }
