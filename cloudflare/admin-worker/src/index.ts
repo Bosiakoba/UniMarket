@@ -226,6 +226,14 @@ function escapeAttr(value: string): string {
   return escapeHtml(value).replaceAll("'", "&#39;");
 }
 
+function recommendationFromSummary(summary: string): string {
+  return summary.toLowerCase().includes("reject")
+    ? "reject"
+    : summary.toLowerCase().includes("approve")
+      ? "approve"
+      : "review";
+}
+
 async function runAiReview(env: Env, item: VerificationRequest): Promise<string> {
   const prompt = [
     "You are reviewing a campus marketplace seller verification request.",
@@ -267,6 +275,19 @@ export default {
 
     const url = new URL(request.url);
     const path = url.pathname;
+
+    if (path === "/api/ai-review" && request.method === "POST") {
+      if (request.headers.get("X-Admin-Key") !== env.ADMIN_API_KEY) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      const item = (await request.json()) as VerificationRequest;
+      const summary = await runAiReview(env, item);
+      return Response.json({
+        summary,
+        recommendation: recommendationFromSummary(summary),
+      });
+    }
 
     if (path === "/" || path === "") {
       const status = url.searchParams.get("status") ?? "Pending";
@@ -339,11 +360,7 @@ export default {
       }
       const item = (await detailResponse.json()) as VerificationRequest;
       const summary = await runAiReview(env, item);
-      const recommendation = summary.toLowerCase().includes("reject")
-        ? "reject"
-        : summary.toLowerCase().includes("approve")
-          ? "approve"
-          : "review";
+      const recommendation = recommendationFromSummary(summary);
 
       await apiFetch(
         env,
