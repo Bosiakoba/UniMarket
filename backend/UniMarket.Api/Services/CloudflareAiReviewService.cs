@@ -11,6 +11,9 @@ public class CloudflareAiReviewService(
     IOptions<AdminSettings> admin,
     ILogger<CloudflareAiReviewService> logger)
 {
+    private const int MaxAttempts = 3;
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -21,14 +24,14 @@ public class CloudflareAiReviewService(
 
     public bool IsConfigured => _cloudflare.IsAiReviewConfigured && _admin.IsConfigured;
 
-    public async Task TryReviewAsync(string requestId, CancellationToken ct)
+    public async Task<bool> TryReviewAsync(string requestId, CancellationToken ct)
     {
         if (!IsConfigured)
         {
             logger.LogWarning(
                 "AI review skipped for {RequestId}. Set Admin__ApiKey and Cloudflare__AiReviewUrl in API .env.",
                 requestId);
-            return;
+            return false;
         }
 
         var processUrl = ResolveProcessRequestUrl(_cloudflare.AiReviewUrl);
@@ -37,48 +40,77 @@ public class CloudflareAiReviewService(
             logger.LogWarning(
                 "AI review skipped for {RequestId}. Cloudflare__AiReviewUrl must end with /api/ai-review.",
                 requestId);
-            return;
+            return false;
         }
 
-        try
+        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
-            logger.LogInformation(
-                "Starting Cloudflare AI review for {RequestId}.",
-                requestId);
-
-            using var request = new HttpRequestMessage(HttpMethod.Post, processUrl)
-            {
-                Content = JsonContent.Create(new { requestId }),
-            };
-            request.Headers.Add("X-Admin-Key", _admin.ApiKey);
-
-            var response = await http.SendAsync(request, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                var body = await response.Content.ReadAsStringAsync(ct);
-                logger.LogWarning(
-                    "Cloudflare AI review failed for {RequestId}: {StatusCode} {Body}",
-                    requestId,
-                    response.StatusCode,
-                    body);
-                return;
-            }
-
-            var result = await response.Content.ReadFromJsonAsync<WorkerProcessResponse>(
-                JsonOptions,
-                cancellationToken: ct);
-            if (result?.Ok == true)
+            try
             {
                 logger.LogInformation(
-                    "Cloudflare AI review completed for {RequestId} (skipped={Skipped}).",
+                    "Starting Cloudflare AI review for {RequestId} (attempt {Attempt}/{MaxAttempts}).",
                     requestId,
-                    result.Skipped);
+                    attempt,
+                    MaxAttempts);
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, processUrl)
+                {
+                    Content = JsonContent.Create(new { requestId }),
+                };
+                request.Headers.Add("X-Admin-Key", _admin.ApiKey);
+
+                using var response = await http.SendAsync(request, ct);
+                var body = await response.Content.ReadAsStringAsync(ct);
+                if (!response.IsSuccessStatusCode)
+                {
+                    logger.LogWarning(
+                        "Cloudflare AI review failed for {RequestId} on attempt {Attempt}: {StatusCode} {Body}",
+                        requestId,
+                        attempt,
+                        response.StatusCode,
+                        body);
+
+                    if (attempt < MaxAttempts)
+                    {
+                        await Task.Delay(RetryDelay, ct);
+                        continue;
+                    }
+
+                    return false;
+                }
+
+                var result = JsonSerializer.Deserialize<WorkerProcessResponse>(body, JsonOptions);
+                if (result?.Ok == true)
+                {
+                    logger.LogInformation(
+                        "Cloudflare AI review completed for {RequestId} (skipped={Skipped}).",
+                        requestId,
+                        result.Skipped);
+                    return true;
+                }
+
+                logger.LogWarning(
+                    "Cloudflare AI review returned unexpected payload for {RequestId}: {Body}",
+                    requestId,
+                    body);
+            }
+            catch (Exception ex) when (attempt < MaxAttempts)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Cloudflare AI review attempt {Attempt} failed for {RequestId}; retrying.",
+                    attempt,
+                    requestId);
+                await Task.Delay(RetryDelay, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Cloudflare AI review failed for {RequestId}.", requestId);
+                return false;
             }
         }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Cloudflare AI review failed for {RequestId}.", requestId);
-        }
+
+        return false;
     }
 
     private static string? ResolveProcessRequestUrl(string aiReviewUrl)

@@ -11,6 +11,6 @@ UNIMARKET_API_URL = "https://unimarket-api.youngfuturetechnology.xyz"
 
 # Set secret: wrangler secret put ADMIN_API_KEY
 
-# Safety-net sweep for missed reviews (primary path is instant API trigger on submit)
+# Safety-net sweep for missed reviews (runs every minute; primary path is API trigger on submit)
 [triggers]
-crons = ["*/30 * * * *"]
+crons = ["* * * * *"]

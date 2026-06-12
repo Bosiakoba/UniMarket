@@ -13,7 +13,7 @@ public class UsersController(
     AppDbContext db,
     CurrentUserService currentUser,
     VerificationQueueService verificationQueue,
-    CloudflareAiReviewService aiReviewService,
+    AiReviewBackgroundDispatcher aiReviewDispatcher,
     CampusEmailOtpService campusEmailOtp) : ControllerBase
 {
     [HttpGet("me")]
@@ -159,15 +159,14 @@ public class UsersController(
         db.VerificationRequests.Add(verificationRequest);
 
         await db.SaveChangesAsync(ct);
-        await aiReviewService.TryReviewAsync(verificationRequest.Id, ct);
+        aiReviewDispatcher.Enqueue(verificationRequest.Id);
 
-        var statuses = await verificationQueue.ResolveUserStatusesAsync(user, ct);
         return Ok(new
         {
-            status = statuses.SellerApplication,
+            status = "pending",
             requestType = VerificationQueueService.TypeSellerApplication,
             requestId = verificationRequest.Id,
-            aiReviewCompleted = true,
+            aiReviewQueued = true,
         });
     }
 
@@ -216,15 +215,14 @@ public class UsersController(
         db.VerificationRequests.Add(verificationRequest);
 
         await db.SaveChangesAsync(ct);
-        await aiReviewService.TryReviewAsync(verificationRequest.Id, ct);
+        aiReviewDispatcher.Enqueue(verificationRequest.Id);
 
-        var statuses = await verificationQueue.ResolveUserStatusesAsync(user, ct);
         return Ok(new
         {
-            status = statuses.VerificationBadge,
+            status = "pending",
             requestType = VerificationQueueService.TypeVerifiedBadge,
             requestId = verificationRequest.Id,
-            aiReviewCompleted = true,
+            aiReviewQueued = true,
         });
     }
 

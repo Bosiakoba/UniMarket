@@ -91,6 +91,7 @@ builder.Services.AddHttpClient<CloudflareAiReviewService>(client =>
 });
 builder.Services.AddHttpClient<ResendEmailService>();
 builder.Services.AddScoped<CampusEmailOtpService>();
+builder.Services.AddSingleton<AiReviewBackgroundDispatcher>();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>

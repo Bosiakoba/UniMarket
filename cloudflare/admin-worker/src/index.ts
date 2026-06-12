@@ -191,7 +191,7 @@ function renderDetail(item: VerificationRequest): string {
     </section>
     <section class="card">
       <h2>AI assist</h2>
-      <p class="muted">Runs in the background after submit. High-confidence rejections are automatic; uncertain cases stay in the manual queue.</p>
+      <p class="muted">Starts within seconds of submit. High-confidence rejections are automatic; uncertain cases stay in the manual queue.</p>
       ${aiBlock}
       <form method="post" action="/requests/${escapeAttr(item.id)}/ai-review" style="margin-top:12px">
         <button class="ai" type="submit">Run Workers AI review</button>
@@ -822,13 +822,24 @@ async function persistAiReview(
   item: VerificationRequest,
   review: AiReviewResult,
 ): Promise<void> {
-  await apiFetch(env, `/api/admin/verification-requests/${item.id}/ai-review`, {
-    method: "POST",
-    body: JSON.stringify({
-      summary: review.summary,
-      recommendation: review.recommendation,
-    }),
-  });
+  const response = await apiFetch(
+    env,
+    `/api/admin/verification-requests/${item.id}/ai-review`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        summary: review.summary,
+        recommendation: review.recommendation,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(
+      `Failed to save AI review for ${item.id}: ${response.status} ${body}`,
+    );
+  }
 }
 
 function autoRejectNotes(review: AiReviewResult): string {
@@ -930,23 +941,37 @@ export default {
         return Response.json({ message: "requestId is required." }, { status: 400 });
       }
 
-      const detailResponse = await apiFetch(
-        env,
-        `/api/admin/verification-requests/${body.requestId}`,
-      );
-      if (!detailResponse.ok) {
-        return new Response(await detailResponse.text(), {
-          status: detailResponse.status,
-        });
-      }
+      const runReview = async (): Promise<Response> => {
+        const detailResponse = await apiFetch(
+          env,
+          `/api/admin/verification-requests/${body.requestId}`,
+        );
+        if (!detailResponse.ok) {
+          return new Response(await detailResponse.text(), {
+            status: detailResponse.status,
+          });
+        }
 
-      const item = (await detailResponse.json()) as VerificationRequest;
-      if (item.aiReviewSummary) {
-        return Response.json({ ok: true, skipped: true, reason: "already_reviewed" });
-      }
+        const item = (await detailResponse.json()) as VerificationRequest;
+        if (item.aiReviewSummary) {
+          return Response.json({
+            ok: true,
+            skipped: true,
+            reason: "already_reviewed",
+          });
+        }
 
-      const review = await processRequestReview(env, item);
-      return Response.json({ ok: true, review });
+        const review = await processRequestReview(env, item);
+        return Response.json({ ok: true, review });
+      };
+
+      try {
+        return await runReview();
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "AI review processing failed.";
+        return Response.json({ ok: false, message }, { status: 500 });
+      }
     }
 
     if (path === "/api/ai-review" && request.method === "POST") {

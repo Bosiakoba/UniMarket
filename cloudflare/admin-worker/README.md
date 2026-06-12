@@ -15,7 +15,7 @@ Do **not** open `/api/ai-review` in the browser expecting a UI. Use `/` for the 
 
 ## Automated seller review
 
-When a user submits a seller application, the API **immediately** calls `POST /api/process-request` (same request waits for vision + auto-approve/reject). A cron sweep every 30 minutes only catches missed reviews.
+When a user submits a seller application, the API **immediately** queues `POST /api/process-request` in a background task (not tied to the HTTP connection, so reverse proxies cannot cancel it). A cron sweep every minute catches anything missed.
 
 1. Fetches the uploaded image through `GET /api/admin/verification-requests/{id}/id-document` (works for R2 and local `/media/...` uploads).
 2. Runs **Llama 3.2 Vision** (LLaVA fallback) with strict checks — must describe the image and show name/school on card.
