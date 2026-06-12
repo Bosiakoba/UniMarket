@@ -31,6 +31,7 @@ if (useD1Primary)
     builder.Services.AddHttpClient(nameof(D1Client));
     builder.Services.AddSingleton<D1Client>();
     builder.Services.AddSingleton<D1EntitySqlBuilder>();
+    builder.Services.AddSingleton<D1SchemaInitializer>();
     builder.Services.AddSingleton<D1SaveChangesInterceptor>();
 
     builder.Services.AddDbContext<AppDbContext>((sp, options) =>
@@ -69,7 +70,6 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
-builder.Services.AddHttpClient(nameof(D1SchemaInitializer));
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<ListingMapper>();
 builder.Services.AddScoped<FirebaseAuthService>();
@@ -86,7 +86,6 @@ builder.Services.AddHttpClient<CloudflareAiReviewService>(client =>
 builder.Services.AddHttpClient<ResendEmailService>();
 builder.Services.AddScoped<CampusEmailOtpService>();
 builder.Services.AddSingleton<AiReviewBackgroundDispatcher>();
-builder.Services.AddSingleton<D1SchemaInitializer>();
 
 builder.Services.AddCors(options =>
 {

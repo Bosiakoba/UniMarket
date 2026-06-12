@@ -15,9 +15,15 @@ public class D1Client(
     IOptions<CloudflareSettings> cloudflare,
     ILogger<D1Client> logger)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions JsonDeserializeOptions = new()
     {
         PropertyNameCaseInsensitive = true,
+    };
+
+    private static readonly JsonSerializerOptions JsonSerializeOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     private readonly CloudflareSettings _settings = cloudflare.Value;
@@ -43,8 +49,16 @@ public class D1Client(
 
     public async Task<bool> TableHasRowsAsync(string table, CancellationToken ct = default)
     {
-        var rows = await QueryAsync($"SELECT 1 AS ok FROM {table} LIMIT 1", null, ct);
-        return rows.Count > 0;
+        try
+        {
+            var rows = await QueryAsync($"SELECT 1 AS ok FROM {table} LIMIT 1", [], ct);
+            return rows.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "D1 table {Table} is empty or not readable yet.", table);
+            return false;
+        }
     }
 
     private async Task<D1QueryResult> ExecuteInternalAsync(
@@ -64,7 +78,9 @@ public class D1Client(
         var url =
             $"https://api.cloudflare.com/client/v4/accounts/{_settings.AccountId}/d1/database/{_settings.D1DatabaseId}/query";
 
-        var payload = JsonSerializer.Serialize(new D1Request(sql, parameters ?? Array.Empty<object?>()));
+        var payload = JsonSerializer.Serialize(
+            new D1Request(sql, parameters ?? []),
+            JsonSerializeOptions);
         using var content = new StringContent(payload, Encoding.UTF8, "application/json");
         var response = await client.PostAsync(url, content, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
@@ -75,7 +91,7 @@ public class D1Client(
             throw new InvalidOperationException($"D1 query failed: {response.StatusCode}");
         }
 
-        var envelope = JsonSerializer.Deserialize<D1Envelope>(body, JsonOptions);
+        var envelope = JsonSerializer.Deserialize<D1Envelope>(body, JsonDeserializeOptions);
         if (envelope is null || !envelope.Success || envelope.Result is null || envelope.Result.Count == 0)
         {
             throw new InvalidOperationException("D1 returned an empty or unsuccessful response.");
