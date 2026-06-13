@@ -105,8 +105,74 @@ public class R2StorageService : IDisposable
 
         await Client.PutObjectAsync(request, ct);
 
-        var baseUrl = _settings.R2PublicBaseUrl.Trim().TrimEnd('/');
-        return $"{baseUrl}/{key}";
+        return BuildPublicMediaUrl(key);
+    }
+
+    public string BuildPublicMediaUrl(string key) =>
+        $"{_apiSettings.PublicBaseUrl.Trim().TrimEnd('/')}/media/{key.TrimStart('/')}";
+
+    /// <summary>
+    /// Rewrites legacy direct R2 URLs to API-proxied /media/ URLs.
+    /// </summary>
+    public string NormalizeMediaUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = url.Trim();
+        if (TryExtractObjectKey(trimmed, out var key))
+        {
+            return BuildPublicMediaUrl(key);
+        }
+
+        return trimmed;
+    }
+
+    public async Task<(Stream Stream, string ContentType)?> TryOpenMediaAsync(
+        string objectPath,
+        CancellationToken ct)
+    {
+        var key = objectPath.Trim().TrimStart('/');
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+
+        if (UsesLocalFallback || !IsR2Configured)
+        {
+            var filePath = Path.Combine(
+                _localUploadRoot,
+                key.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(filePath))
+            {
+                return null;
+            }
+
+            return (File.OpenRead(filePath), ContentTypeForPath(filePath));
+        }
+
+        try
+        {
+            var response = await Client.GetObjectAsync(
+                new GetObjectRequest
+                {
+                    BucketName = _settings.R2BucketName,
+                    Key = key,
+                },
+                ct);
+
+            var contentType = string.IsNullOrWhiteSpace(response.Headers.ContentType)
+                ? ContentTypeForPath(key)
+                : response.Headers.ContentType;
+
+            return (response.ResponseStream, contentType);
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
     }
 
     private async Task<string> UploadLocalAsync(Stream stream, string key, CancellationToken ct)
@@ -139,38 +205,17 @@ public class R2StorageService : IDisposable
             return null;
         }
 
-        if (UsesLocalFallback || !IsR2Configured)
-        {
-            var filePath = Path.Combine(
-                _localUploadRoot,
-                key.Replace('/', Path.DirectorySeparatorChar));
-            if (!File.Exists(filePath))
-            {
-                return null;
-            }
-
-            return (File.OpenRead(filePath), ContentTypeForPath(filePath));
-        }
-
-        var response = await Client.GetObjectAsync(
-            new GetObjectRequest
-            {
-                BucketName = _settings.R2BucketName,
-                Key = key,
-            },
-            ct);
-
-        var contentType = string.IsNullOrWhiteSpace(response.Headers.ContentType)
-            ? ContentTypeForPath(key)
-            : response.Headers.ContentType;
-
-        return (response.ResponseStream, contentType);
+        return await TryOpenMediaAsync(key, ct);
     }
 
-    public bool TryResolveObjectKey(string idDocumentUrl, out string key)
+    public bool TryResolveObjectKey(string idDocumentUrl, out string key) =>
+        TryExtractObjectKey(idDocumentUrl, out key) &&
+        key.StartsWith("seller-documents/", StringComparison.OrdinalIgnoreCase);
+
+    private bool TryExtractObjectKey(string url, out string key)
     {
         key = string.Empty;
-        if (!Uri.TryCreate(idDocumentUrl, UriKind.Absolute, out var uri))
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
         {
             return false;
         }
@@ -181,15 +226,24 @@ public class R2StorageService : IDisposable
             path = path["media/".Length..];
         }
 
-        var marker = "seller-documents/";
-        var markerIndex = path.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-        if (markerIndex < 0)
+        if (path.StartsWith("listings/", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("seller-documents/", StringComparison.OrdinalIgnoreCase))
         {
-            return false;
+            key = path;
+            return true;
         }
 
-        key = path[markerIndex..];
-        return key.Length > marker.Length;
+        foreach (var marker in new[] { "listings/", "seller-documents/" })
+        {
+            var markerIndex = path.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (markerIndex >= 0)
+            {
+                key = path[markerIndex..];
+                return key.Length > marker.Length;
+            }
+        }
+
+        return false;
     }
 
     private static string ContentTypeForPath(string path) =>

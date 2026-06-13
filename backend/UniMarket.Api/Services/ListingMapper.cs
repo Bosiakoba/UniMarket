@@ -6,7 +6,7 @@ using UniMarket.Api.Models;
 
 namespace UniMarket.Api.Services;
 
-public class ListingMapper(AppDbContext db)
+public class ListingMapper(AppDbContext db, R2StorageService storage)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -26,7 +26,8 @@ public class ListingMapper(AppDbContext db)
 
         var photos = listing.Images
             .OrderBy(i => i.SortOrder)
-            .Select(i => i.ImageUrl)
+            .Select(i => storage.NormalizeMediaUrl(i.ImageUrl))
+            .Where(url => !string.IsNullOrWhiteSpace(url))
             .ToList();
 
         if (photos.Count == 0)

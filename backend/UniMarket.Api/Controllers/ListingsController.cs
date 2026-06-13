@@ -13,7 +13,8 @@ public class ListingsController(
     AppDbContext db,
     CurrentUserService currentUser,
     ListingMapper mapper,
-    SaleConfirmationService saleConfirmation) : ControllerBase
+    SaleConfirmationService saleConfirmation,
+    R2StorageService storage) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ListingDto>>> Search(
@@ -124,7 +125,7 @@ public class ListingsController(
             {
                 Id = $"{id}-img-{i}",
                 ListingId = id,
-                ImageUrl = request.PhotoUrls[i],
+                ImageUrl = storage.NormalizeMediaUrl(request.PhotoUrls[i]),
                 SortOrder = i,
             });
         }
@@ -185,7 +186,7 @@ public class ListingsController(
             {
                 Id = $"{id}-img-{i}",
                 ListingId = id,
-                ImageUrl = request.PhotoUrls[i],
+                ImageUrl = storage.NormalizeMediaUrl(request.PhotoUrls[i]),
                 SortOrder = i,
             });
         }

@@ -13,7 +13,8 @@ namespace UniMarket.Api.Controllers;
 public class ChatsController(
     AppDbContext db,
     CurrentUserService currentUser,
-    NotificationService notifications) : ControllerBase
+    NotificationService notifications,
+    R2StorageService storage) : ControllerBase
 {
     private static readonly JsonSerializerOptions InquiryJsonOptions = new()
     {
@@ -207,7 +208,8 @@ public class ChatsController(
             : chat.BuyerId;
         var otherParty = await db.Users.FindAsync([otherUserId], ct);
 
-        var image = listing?.Images.OrderBy(i => i.SortOrder).FirstOrDefault()?.ImageUrl;
+        var image = storage.NormalizeMediaUrl(
+            listing?.Images.OrderBy(i => i.SortOrder).FirstOrDefault()?.ImageUrl);
         var isBuyer = chat.BuyerId == currentUser.UserId;
         var hasUnread = await ComputeUnreadAsync(chat, ct);
 
@@ -307,7 +309,8 @@ public class ChatsController(
             listing.Id,
             listing.Title,
             listing.Price,
-            listing.Images.OrderBy(i => i.SortOrder).FirstOrDefault()?.ImageUrl,
+            storage.NormalizeMediaUrl(
+                listing.Images.OrderBy(i => i.SortOrder).FirstOrDefault()?.ImageUrl),
             listing.UserId);
 
         var inquiry = new Message
@@ -355,7 +358,7 @@ public class ChatsController(
                     listingId = snapshot.ListingId;
                     listingTitle = snapshot.Title;
                     listingPrice = snapshot.Price;
-                    listingImageUrl = snapshot.ImageUrl;
+                    listingImageUrl = storage.NormalizeMediaUrl(snapshot.ImageUrl);
                     displayContent = $"Inquiry about: {snapshot.Title}";
                 }
             }

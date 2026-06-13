@@ -27,6 +27,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<VerificationRequest>().HasOne(r => r.User)
             .WithMany()
             .HasForeignKey(r => r.UserId);
+        modelBuilder.Entity<ListingImage>()
+            .HasOne(i => i.Listing)
+            .WithMany(l => l.Images)
+            .HasForeignKey(i => i.ListingId)
+            .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<WishlistItem>().HasKey(w => new { w.UserId, w.ListingId });
         modelBuilder.Entity<DeviceRegistration>().HasIndex(d => d.Token).IsUnique();
         modelBuilder.Entity<UserNotification>().HasIndex(n => new { n.UserId, n.CreatedAt });

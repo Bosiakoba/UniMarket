@@ -14,6 +14,8 @@ public class D1SchemaPatcher(D1Client d1, ILogger<D1SchemaPatcher> logger)
         await EnsureColumnAsync("Users", "VerifiedStudentEmail", "TEXT", ct);
         await EnsureColumnAsync("Users", "VerifiedStudentEmailAt", "TEXT", ct);
         await EnsureColumnAsync("VerificationRequests", "StudentEmail", "TEXT", ct);
+        await EnsureColumnAsync("Chats", "BuyerLastReadAt", "TEXT", ct);
+        await EnsureColumnAsync("Chats", "SellerLastReadAt", "TEXT", ct);
     }
 
     private async Task EnsureColumnAsync(
