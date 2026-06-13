@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../../core/data/stores/user_session_store.dart';
 import '../../../core/models/listing_item.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -43,7 +44,7 @@ class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
     super.dispose();
   }
 
-  void _postReview() {
+  void _postReview() async {
     final body = _reviewController.text.trim();
     if (_userRating == 0) {
       _showSnack('Please select a star rating.');
@@ -57,13 +58,20 @@ class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
     final session = UserSessionScope.of(context);
     final author = session.currentUser?.fullName ?? 'Campus buyer';
 
-    ReviewStoreScope.of(context).addReview(
+    final error = await ReviewStoreScope.of(context).addReview(
       listingId: widget.listing.canonicalId,
       authorName: author,
       rating: _userRating.toDouble(),
       body: body,
       client: ApiClientScope.of(context),
+      isOwnListing: _isOwnListing(session),
     );
+
+    if (!mounted) return;
+    if (error != null) {
+      _showSnack(error);
+      return;
+    }
 
     setState(() {
       _userRating = 0;
@@ -72,6 +80,16 @@ class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
 
     _showSnack('Review posted.');
     FocusScope.of(context).unfocus();
+  }
+
+  bool _isOwnListing(UserSessionStore session) {
+    final user = session.currentUser;
+    if (user == null) return false;
+    final listing = widget.listing;
+    if (listing.sellerUserId.isNotEmpty) {
+      return listing.sellerUserId == user.id;
+    }
+    return listing.sellerName == user.fullName;
   }
 
   void _showSnack(String message) {
@@ -96,6 +114,8 @@ class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
         final count = reviewStore.reviewCount(listingId);
         final displayRating = count > 0 ? average : widget.listing.rating;
         final displayCount = count > 0 ? count : widget.listing.reviewCount;
+        final session = UserSessionScope.of(context);
+        final isOwnListing = _isOwnListing(session);
 
         return Scaffold(
           backgroundColor: AppColors.white,
@@ -116,13 +136,21 @@ class _ListingReviewsScreenState extends State<ListingReviewsScreen> {
               const SizedBox(height: 8),
               RatingRow(rating: displayRating, reviewCount: displayCount),
               const SizedBox(height: 20),
-              WriteReviewForm(
-                rating: _userRating,
-                controller: _reviewController,
-                onRatingChanged: (value) => setState(() => _userRating = value),
-                onSubmit: _postReview,
-              ),
-              const SizedBox(height: 24),
+              if (isOwnListing)
+                Text(
+                  'You cannot review your own listing.',
+                  style: AppTypography.body(color: AppColors.textSecondary),
+                )
+              else
+                WriteReviewForm(
+                  rating: _userRating,
+                  controller: _reviewController,
+                  onRatingChanged: (value) =>
+                      setState(() => _userRating = value),
+                  onSubmit: _postReview,
+                ),
+              if (!isOwnListing) const SizedBox(height: 24),
+              if (isOwnListing) const SizedBox(height: 8),
               if (loadingReviews) ...[
                 const ReviewTileSkeleton(),
                 const SizedBox(height: 12),

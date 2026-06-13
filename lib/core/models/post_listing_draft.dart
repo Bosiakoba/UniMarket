@@ -12,7 +12,7 @@ class PostListingDraft {
     Map<String, String>? attributes,
     this.condition = 'Like new',
     this.price = '',
-    this.meetupLocation = 'Main Campus',
+    this.meetupLocation = '',
     this.enableDiscount = false,
     this.discountPercent = 15,
     this.discountValidDays = 7,
@@ -112,4 +112,23 @@ class PostListingDraft {
 
   static bool isLocalFile(String source) =>
       !isRemotePhoto(source) && !isBundledAsset(source);
+
+  static List<String> meetupLocationsFor(String campus) {
+    final base = campus.trim();
+    if (base.isEmpty) {
+      return const ['Main Campus'];
+    }
+
+    return [
+      base,
+      '$base — Library entrance',
+      '$base — Student union',
+      '$base — Main gate',
+    ];
+  }
+
+  static String defaultMeetupLocationFor(String campus) {
+    final base = campus.trim();
+    return base.isNotEmpty ? base : 'Main Campus';
+  }
 }

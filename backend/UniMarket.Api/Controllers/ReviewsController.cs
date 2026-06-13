@@ -33,8 +33,15 @@ public class ReviewsController(AppDbContext db, CurrentUserService currentUser) 
         if (!currentUser.IsAuthenticated) return Unauthorized();
         if (request.Score is < 1 or > 5) return BadRequest();
 
-        var listingExists = await db.Listings.AnyAsync(l => l.Id == listingId, ct);
-        if (!listingExists) return NotFound();
+        var listing = await db.Listings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == listingId, ct);
+        if (listing is null) return NotFound();
+
+        if (listing.UserId == currentUser.UserId)
+        {
+            return BadRequest(new { message = "You cannot review your own listing." });
+        }
 
         var user = await db.Users.FindAsync([currentUser.UserId!], ct);
         var review = new ListingReview

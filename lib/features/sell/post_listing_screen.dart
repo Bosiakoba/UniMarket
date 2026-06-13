@@ -15,6 +15,7 @@ import '../../core/widgets/seller_store_scope.dart';
 import '../../core/widgets/uni_button.dart';
 import '../../core/widgets/uni_option_sheet.dart';
 import '../../core/widgets/uni_text_field.dart';
+import '../../core/widgets/user_session_scope.dart';
 import 'widgets/listing_photo_picker.dart';
 import 'widgets/category_fields_form.dart';
 import 'widgets/category_picker_sheet.dart';
@@ -48,13 +49,6 @@ class _PostListingScreenState extends State<PostListingScreen> {
     AppAssets.ob1Collage7,
   ];
 
-  static const _locations = [
-    'Main Campus',
-    'North Hostel',
-    'Library entrance',
-    'Student union',
-  ];
-
   late PostListingDraft _draft;
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -86,8 +80,18 @@ class _PostListingScreenState extends State<PostListingScreen> {
               .draftForListing(widget.editingListingId!) ??
           PostListingDraft();
       _fillMissingDraftFields(_draft);
+      if (_draft.meetupLocation.trim().isEmpty) {
+        final campus =
+            UserSessionScope.of(context).currentUser?.campus ?? '';
+        _draft.meetupLocation =
+            PostListingDraft.defaultMeetupLocationFor(campus);
+      }
     } else {
-      _draft = PostListingDraft();
+      final campus =
+          UserSessionScope.of(context).currentUser?.campus ?? '';
+      _draft = PostListingDraft(
+        meetupLocation: PostListingDraft.defaultMeetupLocationFor(campus),
+      );
     }
 
     _titleController.text = _draft.title;
@@ -234,6 +238,16 @@ class _PostListingScreenState extends State<PostListingScreen> {
     });
   }
 
+  List<String> _meetupLocations() {
+    final campus = UserSessionScope.of(context).currentUser?.campus ?? '';
+    final options = PostListingDraft.meetupLocationsFor(campus);
+    final current = _draft.meetupLocation.trim();
+    if (current.isNotEmpty && !options.contains(current)) {
+      return [current, ...options];
+    }
+    return options;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_draftReady) {
@@ -335,7 +349,7 @@ class _PostListingScreenState extends State<PostListingScreen> {
                     priceController: _priceController,
                     condition: _draft.condition,
                     location: _draft.meetupLocation,
-                    locations: _locations,
+                    locations: _meetupLocations(),
                     onConditionChanged: (c) =>
                         setState(() => _draft.condition = c),
                     onLocationChanged: (l) =>

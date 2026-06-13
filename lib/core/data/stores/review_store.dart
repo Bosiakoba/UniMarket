@@ -56,7 +56,12 @@ class ReviewStore extends ChangeNotifier {
     required double rating,
     required String body,
     ApiClient? client,
+    bool isOwnListing = false,
   }) async {
+    if (isOwnListing) {
+      return 'You cannot review your own listing.';
+    }
+
     final id = _canonical(listingId);
     if (client != null && isLiveSession(client)) {
       try {
