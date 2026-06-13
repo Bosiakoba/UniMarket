@@ -5,7 +5,10 @@ using UniMarket.Api.Models;
 
 namespace UniMarket.Api.Services;
 
-public class VerificationQueueService(AppDbContext db, NotificationService notifications)
+public class VerificationQueueService(
+    AppDbContext db,
+    NotificationService notifications,
+    R2StorageService storage)
 {
     public const string TypeSellerApplication = "seller_application";
     public const string TypeVerifiedBadge = "verified_badge";
@@ -167,6 +170,7 @@ public class VerificationQueueService(AppDbContext db, NotificationService notif
 
         if (row.RequestType == TypeSellerApplication)
         {
+            await CleanupRejectedSellerDocumentsAsync(row, ct);
             await notifications.CreateAsync(
                 user.Id,
                 "Seller application approved",
@@ -189,6 +193,44 @@ public class VerificationQueueService(AppDbContext db, NotificationService notif
         }
 
         return ToDto(row);
+    }
+
+    private async Task CleanupRejectedSellerDocumentsAsync(
+        VerificationRequest approvedRequest,
+        CancellationToken ct)
+    {
+        var otherRequests = await db.VerificationRequests
+            .Where(r =>
+                r.UserId == approvedRequest.UserId &&
+                r.RequestType == TypeSellerApplication &&
+                r.Id != approvedRequest.Id &&
+                r.IdDocumentUrl != null)
+            .ToListAsync(ct);
+
+        if (otherRequests.Count == 0)
+        {
+            return;
+        }
+
+        var keepUrl = approvedRequest.IdDocumentUrl?.Trim();
+        var deletedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var request in otherRequests)
+        {
+            var url = request.IdDocumentUrl?.Trim();
+            if (string.IsNullOrWhiteSpace(url) ||
+                string.Equals(url, keepUrl, StringComparison.OrdinalIgnoreCase) ||
+                !deletedUrls.Add(url))
+            {
+                request.IdDocumentUrl = null;
+                continue;
+            }
+
+            await storage.DeleteByUrlAsync(url, ct);
+            request.IdDocumentUrl = null;
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task<VerificationRequestDto> RejectAsync(

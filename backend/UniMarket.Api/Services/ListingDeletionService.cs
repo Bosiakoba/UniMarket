@@ -6,7 +6,11 @@ namespace UniMarket.Api.Services;
 
 public static class ListingDeletionService
 {
-    public static async Task DeleteAsync(AppDbContext db, Listing listing, CancellationToken ct)
+    public static async Task DeleteAsync(
+        AppDbContext db,
+        Listing listing,
+        R2StorageService? storage,
+        CancellationToken ct)
     {
         var listingId = listing.Id;
 
@@ -46,8 +50,17 @@ public static class ListingDeletionService
             await db.ListingReports.Where(r => r.ListingId == listingId).ToListAsync(ct));
         db.WishlistItems.RemoveRange(
             await db.WishlistItems.Where(w => w.ListingId == listingId).ToListAsync(ct));
-        db.ListingImages.RemoveRange(
-            await db.ListingImages.Where(i => i.ListingId == listingId).ToListAsync(ct));
+
+        var images = await db.ListingImages
+            .Where(i => i.ListingId == listingId)
+            .ToListAsync(ct);
+
+        if (storage is not null)
+        {
+            await storage.DeleteByUrlsAsync(images.Select(i => i.ImageUrl), ct);
+        }
+
+        db.ListingImages.RemoveRange(images);
 
         db.Listings.Remove(listing);
     }

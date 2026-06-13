@@ -204,7 +204,7 @@ public class ListingsController(
         if (listing is null) return NotFound();
         if (listing.UserId != currentUser.UserId) return Forbid();
 
-        await ListingDeletionService.DeleteAsync(db, listing, ct);
+        await ListingDeletionService.DeleteAsync(db, listing, storage, ct);
         await db.SaveChangesAsync(ct);
         return NoContent();
     }

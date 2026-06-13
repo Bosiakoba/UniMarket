@@ -1,6 +1,7 @@
 using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using UniMarket.Api.Configuration;
 
@@ -11,17 +12,20 @@ public class R2StorageService : IDisposable
     private readonly CloudflareSettings _settings;
     private readonly ApiSettings _apiSettings;
     private readonly string _localUploadRoot;
+    private readonly ILogger<R2StorageService> _logger;
     private IAmazonS3? _client;
     private bool _disposed;
 
     public R2StorageService(
         IOptions<CloudflareSettings> settings,
         IOptions<ApiSettings> apiSettings,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        ILogger<R2StorageService> logger)
     {
         _settings = settings.Value;
         _apiSettings = apiSettings.Value;
         _localUploadRoot = Path.Combine(environment.ContentRootPath, "data", "uploads");
+        _logger = logger;
     }
 
     public bool IsR2Configured => _settings.IsR2Configured;
@@ -128,6 +132,69 @@ public class R2StorageService : IDisposable
         }
 
         return trimmed;
+    }
+
+    public async Task DeleteByUrlAsync(string? url, CancellationToken ct)
+    {
+        if (!CanUpload || string.IsNullOrWhiteSpace(url))
+        {
+            return;
+        }
+
+        if (!TryExtractObjectKey(url, out var key))
+        {
+            return;
+        }
+
+        await DeleteObjectAsync(key, ct);
+    }
+
+    public async Task DeleteByUrlsAsync(IEnumerable<string?> urls, CancellationToken ct)
+    {
+        foreach (var url in urls)
+        {
+            await DeleteByUrlAsync(url, ct);
+        }
+    }
+
+    private async Task DeleteObjectAsync(string key, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return;
+        }
+
+        if (UsesLocalFallback || !IsR2Configured)
+        {
+            var filePath = Path.Combine(
+                _localUploadRoot,
+                key.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+
+            return;
+        }
+
+        try
+        {
+            await Client.DeleteObjectAsync(
+                new DeleteObjectRequest
+                {
+                    BucketName = _settings.R2BucketName,
+                    Key = key,
+                },
+                ct);
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // Already removed.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete object {ObjectKey} from storage.", key);
+        }
     }
 
     public async Task<(Stream Stream, string ContentType)?> TryOpenMediaAsync(
