@@ -96,12 +96,8 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                   final profileListing =
                       widget.highlightListing ?? listings.firstOrNull;
                   final isVerified = profileListing?.isVerified ?? false;
-                  final rating = profileListing?.sellerRating ??
-                      profileListing?.rating ??
-                      0;
-                  final reviewCount = profileListing?.sellerReviewCount ??
-                      profileListing?.reviewCount ??
-                      0;
+                  final rating = profileListing?.sellerRating ?? 0;
+                  final reviewCount = profileListing?.sellerReviewCount ?? 0;
                   final initial = widget.sellerName.isNotEmpty
                       ? widget.sellerName[0].toUpperCase()
                       : '?';

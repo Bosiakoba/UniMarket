@@ -77,6 +77,8 @@ public record ListingDto(
     bool IsVerified,
     double Rating,
     int ReviewCount,
+    double SellerRating,
+    int SellerReviewCount,
     IReadOnlyList<string> PhotoUrls,
     DateTime CreatedAt);
 

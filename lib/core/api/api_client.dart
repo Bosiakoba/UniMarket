@@ -769,6 +769,8 @@ abstract final class ListingMapper {
           const {},
       rating: (json['rating'] as num?)?.toDouble() ?? 0,
       reviewCount: json['reviewCount'] as int? ?? 0,
+      sellerRating: (json['sellerRating'] as num?)?.toDouble() ?? 0,
+      sellerReviewCount: json['sellerReviewCount'] as int? ?? 0,
       originalPrice: (json['originalPrice'] as num?)?.toDouble(),
       discountEndsAt: json['discountEndsAt'] != null
           ? DateTime.tryParse(json['discountEndsAt'] as String)

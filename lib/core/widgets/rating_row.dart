@@ -18,6 +18,28 @@ class RatingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (reviewCount == 0) {
+      return Row(
+        children: [
+          ...List.generate(
+            5,
+            (_) => Icon(
+              LucideIcons.star,
+              size: compact ? 14 : 16,
+              color: AppColors.border,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'No reviews yet',
+            style: compact
+                ? AppTypography.caption(color: AppColors.textSecondary)
+                : AppTypography.body(color: AppColors.textSecondary),
+          ),
+        ],
+      );
+    }
+
     return Row(
       children: [
         ...List.generate(5, (i) {

@@ -15,6 +15,10 @@ abstract final class MockListings {
       isVerified: true,
       distanceKm: 0.4,
       category: 'Shoes & Bags',
+      rating: 4.9,
+      reviewCount: 12,
+      sellerRating: 4.8,
+      sellerReviewCount: 28,
       tags: ['sneakers', 'nike', 'campus', 'streetwear'],
       attributes: {
         'item_type': 'Sneakers',

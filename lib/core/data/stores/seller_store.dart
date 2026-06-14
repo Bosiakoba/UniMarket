@@ -647,11 +647,10 @@ class SellerStore extends ChangeNotifier {
       category: draft.category,
       tags: List.of(draft.tags),
       attributes: Map.of(draft.attributes),
-      rating: preserveFrom?.rating ?? 4.8,
+      rating: preserveFrom?.rating ?? 0,
       reviewCount: preserveFrom?.reviewCount ?? 0,
       sellerRating: preserveFrom?.sellerRating ?? sellerRating,
-      sellerReviewCount:
-          preserveFrom?.sellerReviewCount ?? MockProfile.reviewCount,
+      sellerReviewCount: preserveFrom?.sellerReviewCount ?? sellerReviewCount,
       originalPrice: pricing.originalPrice,
       discountEndsAt: pricing.discountEndsAt,
       discountDurationDays: pricing.discountDurationDays,

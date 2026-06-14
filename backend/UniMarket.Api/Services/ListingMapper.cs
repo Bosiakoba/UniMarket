@@ -13,6 +13,8 @@ public class ListingMapper(AppDbContext db, R2StorageService storage)
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
+    private readonly Dictionary<string, (double Rating, int Count)> _sellerStatsCache = new();
+
     public async Task<ListingDto> ToDtoAsync(Listing listing, CancellationToken ct = default)
     {
         var owner = listing.Owner ?? await db.Users.FindAsync([listing.UserId], ct);
@@ -23,6 +25,9 @@ public class ListingMapper(AppDbContext db, R2StorageService storage)
         var rating = reviews.Count == 0
             ? 0
             : reviews.Average(r => r.Score);
+
+        var (sellerRating, sellerReviewCount) =
+            await GetSellerReviewStatsAsync(listing.UserId, ct);
 
         var photos = listing.Images
             .OrderBy(i => i.SortOrder)
@@ -58,8 +63,33 @@ public class ListingMapper(AppDbContext db, R2StorageService storage)
             owner?.IsVerified ?? false,
             Math.Round(rating, 1),
             reviews.Count,
+            sellerRating,
+            sellerReviewCount,
             photos,
             listing.CreatedAt);
+    }
+
+    private async Task<(double Rating, int Count)> GetSellerReviewStatsAsync(
+        string userId,
+        CancellationToken ct)
+    {
+        if (_sellerStatsCache.TryGetValue(userId, out var cached))
+        {
+            return cached;
+        }
+
+        var sellerReviews = await (
+            from review in db.ListingReviews
+            join sellerListing in db.Listings on review.ListingId equals sellerListing.Id
+            where sellerListing.UserId == userId
+            select review).ToListAsync(ct);
+
+        var stats = sellerReviews.Count == 0
+            ? (0d, 0)
+            : (Math.Round(sellerReviews.Average(r => r.Score), 1), sellerReviews.Count);
+
+        _sellerStatsCache[userId] = stats;
+        return stats;
     }
 
     public static IReadOnlyList<string> DeserializeTags(string json)
