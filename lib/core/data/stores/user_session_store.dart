@@ -1,0 +1,558 @@
+import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../api/api_client.dart';
+import '../../models/app_user.dart';
+import '../../navigation/onboarding_navigation.dart';
+import '../../services/firebase_auth_service.dart';
+
+class UserSessionStore extends ChangeNotifier {
+  static String? currentUniversity;
+  static String? currentCampus;
+
+  AppUser? _currentUser;
+  AppUser? get currentUser => _currentUser;
+  set currentUser(AppUser? value) {
+    _currentUser = value;
+    currentUniversity = value?.university;
+    currentCampus = value?.campus;
+  }
+
+  bool isSigningIn = false;
+  String? lastAuthError;
+  bool _guestSession = false;
+
+  bool get isLoggedIn => currentUser != null;
+
+  bool get isGuest =>
+      !isLoggedIn || _guestSession || FirebaseAuthService.isAnonymous;
+
+  bool get isRegistered => isLoggedIn && !isGuest;
+
+  bool usesFirebaseAuth(ApiClient client) => client.idToken != null;
+
+  String postAuthRoute(ApiClient client) => OnboardingNavigation.routeFor(
+        user: currentUser,
+        usesFirebaseAuth: usesFirebaseAuth(client),
+      );
+
+  static const demoEmail = '';
+  static const jordanDemoEmail = '';
+
+  bool get isDemoAccount => false;
+
+  String devUserIdForEmail(String email) {
+    final normalized = email.trim().toLowerCase();
+    return 'user-${normalized.hashCode.abs()}';
+  }
+
+  Future<String?> signInWithApi({
+    required ApiClient client,
+    required String email,
+    required String password,
+  }) async {
+    final validationError = _validateCredentials(email, password);
+    if (validationError != null) return validationError;
+
+    isSigningIn = true;
+    lastAuthError = null;
+    notifyListeners();
+
+    try {
+      _guestSession = false;
+      await FirebaseAuthService.signInWithEmailPassword(
+        email: email,
+        password: password,
+      );
+      return await _completeApiSession(client);
+    } on FirebaseAuthException catch (error) {
+      return FirebaseAuthService.mapAuthError(error);
+    } catch (error) {
+      lastAuthError = error.toString();
+      if (FirebaseAuthService.currentUser != null) {
+        await FirebaseAuthService.signOut();
+        client
+          ..idToken = null
+          ..devUserId = null;
+        currentUser = null;
+        notifyListeners();
+        if (error is ApiException) {
+          return error.message;
+        }
+        return 'Could not reach the server. Check your connection and try again.';
+      }
+      return _offlineFallback(client, email);
+    } finally {
+      isSigningIn = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> signUpWithApi({
+    required ApiClient client,
+    required String email,
+    required String password,
+  }) async {
+    final trimmedEmail = email.trim().toLowerCase();
+    if (trimmedEmail.isEmpty) return 'Enter your university email.';
+    if (!_isCampusEmail(trimmedEmail)) {
+      return 'Use your campus email address.';
+    }
+    if (password.trim().length < 6) {
+      return 'Password must be at least 6 characters.';
+    }
+
+    isSigningIn = true;
+    lastAuthError = null;
+    notifyListeners();
+
+    try {
+      _guestSession = false;
+      await FirebaseAuthService.signUpWithEmailPassword(
+        email: trimmedEmail,
+        password: password,
+      );
+      await FirebaseAuthService.sendEmailVerification();
+      return await _completeApiSession(client);
+    } on FirebaseAuthException catch (error) {
+      return FirebaseAuthService.mapAuthError(error);
+    } catch (error) {
+      lastAuthError = error.toString();
+      if (error is ApiException) {
+        return error.message;
+      }
+      return error.toString();
+    } finally {
+      isSigningIn = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> signInAnonymouslyWithApi({required ApiClient client}) async {
+    isSigningIn = true;
+    lastAuthError = null;
+    notifyListeners();
+
+    try {
+      _guestSession = true;
+      await FirebaseAuthService.signInAnonymously();
+      return await _completeApiSession(client);
+    } on FirebaseAuthException catch (error) {
+      return FirebaseAuthService.mapAuthError(error);
+    } catch (error) {
+      lastAuthError = error.toString();
+      return error.toString();
+    } finally {
+      isSigningIn = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> signInWithGoogleApi({required ApiClient client}) async {
+    isSigningIn = true;
+    lastAuthError = null;
+    notifyListeners();
+
+    try {
+      _guestSession = false;
+      await FirebaseAuthService.signInWithGoogle();
+      if (FirebaseAuthService.currentUser == null) {
+        return 'Could not complete Google sign-in.';
+      }
+      return await _completeApiSession(client);
+    } on FirebaseAuthException catch (error) {
+      // mapAuthError returns '' for cancellation — signals no-op.
+      return FirebaseAuthService.mapAuthError(error);
+    } catch (error) {
+      // API is unreachable — try offline fallback.
+      final firebaseUser = FirebaseAuthService.currentUser;
+      if (firebaseUser == null) {
+        return 'Could not complete sign-in. Please try again.';
+      }
+
+      // 1. Try cached profile first.
+      try {
+        final idToken = await firebaseUser.getIdToken();
+        if (idToken != null) {
+          final prefs = await SharedPreferences.getInstance();
+          final cached = prefs.getString('cached_user_profile');
+          if (cached != null) {
+            final profile = jsonDecode(cached) as Map<String, dynamic>;
+            final user = ListingMapper.userFromJson(profile);
+            currentUser = user;
+            client
+              ..idToken = idToken
+              ..devUserId = null;
+            _guestSession = false;
+            lastAuthError = 'Could not reach the server. Some features may be limited.';
+            return null;
+          }
+        }
+      } catch (_) {}
+
+      // 2. No cached profile — create minimal offline user from Firebase data.
+      try {
+        final idToken = await firebaseUser.getIdToken();
+        if (idToken == null) return 'Could not obtain session token.';
+
+        final email = firebaseUser.email ?? '';
+        final name = firebaseUser.displayName ?? '';
+        final avatar = firebaseUser.photoURL ?? '';
+
+        currentUser = AppUser(
+          id: email.isNotEmpty
+              ? devUserIdForEmail(email)
+              : 'google-${firebaseUser.uid}',
+          email: email,
+          fullName: name.isNotEmpty
+              ? name
+              : (email.isNotEmpty
+                  ? email.split('@').first
+                  : 'Campus User'),
+          university: '',
+          campus: '',
+          profileComplete: false,
+          interestCategories: {},
+          createdAt: DateTime.now(),
+          firebaseUid: firebaseUser.uid,
+          isSeller: false,
+          avatarUrl: avatar.isNotEmpty ? avatar : null,
+        );
+
+        client
+          ..idToken = idToken
+          ..devUserId = null;
+        _guestSession = false;
+        lastAuthError = 'Could not reach the server. Some features may be limited.';
+        return null;
+      } catch (_) {
+        return 'Could not reach the server. Please try again.';
+      }
+    } finally {
+      isSigningIn = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> restoreFromFirebase({required ApiClient client}) async {
+    await FirebaseAuthService.awaitInitialState();
+    if (FirebaseAuthService.currentUser == null) return false;
+
+    try {
+      _guestSession = FirebaseAuthService.isAnonymous;
+      await _completeApiSession(client);
+      _guestSession = FirebaseAuthService.isAnonymous;
+      return currentUser != null;
+    } catch (error) {
+      if (error is ApiException && (error.statusCode == 401 || error.statusCode == 404 || error.statusCode == 403)) {
+        _guestSession = false;
+        await FirebaseAuthService.signOut();
+        client
+          ..idToken = null
+          ..devUserId = null;
+        currentUser = null;
+        SharedPreferences.getInstance().then((prefs) {
+          try {
+            prefs.remove('cached_user_profile');
+          } catch (_) {}
+        });
+        notifyListeners();
+        return false;
+      }
+      
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cached = prefs.getString('cached_user_profile');
+        if (cached != null) {
+          final profile = jsonDecode(cached) as Map<String, dynamic>;
+          var user = ListingMapper.userFromJson(profile);
+          if (FirebaseAuthService.isAnonymous) {
+            _guestSession = true;
+            user = user.copyWith(profileComplete: true);
+          }
+          currentUser = user;
+          final idToken = await FirebaseAuthService.getIdToken();
+          client
+            ..idToken = idToken
+            ..devUserId = null;
+          _guestSession = FirebaseAuthService.isAnonymous;
+          notifyListeners();
+          return true;
+        }
+      } catch (_) {}
+      
+      return false;
+    }
+  }
+
+  Future<String?> _completeApiSession(ApiClient client) async {
+    final idToken = await FirebaseAuthService.getIdToken();
+    if (idToken == null) {
+      return 'Could not obtain a sign-in token.';
+    }
+
+    try {
+      final profile = await client.bootstrapSession(firebaseIdToken: idToken);
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_user_profile', jsonEncode(profile));
+
+      var user = ListingMapper.userFromJson(profile);
+      if (FirebaseAuthService.isAnonymous) {
+        _guestSession = true;
+        user = user.copyWith(profileComplete: true);
+      }
+      currentUser = user;
+      client
+        ..idToken = idToken
+        ..devUserId = null;
+      lastAuthError = null;
+      return null;
+    } catch (error) {
+      lastAuthError = error.toString();
+      rethrow;
+    }
+  }
+
+  String? _offlineFallback(ApiClient client, String email) {
+    currentUser = _userFromEmail(email.trim().toLowerCase(), isNew: false);
+    client
+      ..devUserId = currentUser!.id
+      ..idToken = null;
+    return null;
+  }
+
+  Future<void> signOut() async {
+    await FirebaseAuthService.signOut();
+    currentUser = null;
+    lastAuthError = null;
+    _guestSession = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('cached_user_profile');
+    notifyListeners();
+  }
+
+  void completeProfile({
+    required String fullName,
+    required String university,
+    required String campus,
+    String? phone,
+  }) {
+    _applyLocalProfile(
+      fullName: fullName,
+      university: university,
+      campus: campus,
+      phone: phone,
+    );
+  }
+
+  Future<String?> completeProfileWithApi({
+    required ApiClient client,
+    required String fullName,
+    required String university,
+    required String campus,
+    String? phone,
+  }) async {
+    final user = currentUser;
+    if (user == null) return 'Sign in to continue.';
+
+    if (fullName.trim().length < 2) {
+      return 'Enter your full name.';
+    }
+    if (university.trim().isEmpty || campus.trim().isEmpty) {
+      return 'Enter your university and campus.';
+    }
+
+    if (client.idToken == null) {
+      completeProfile(
+        fullName: fullName,
+        university: university,
+        campus: campus,
+        phone: phone,
+      );
+      currentUser = user.copyWith(profileComplete: true);
+      notifyListeners();
+      return null;
+    }
+
+    try {
+      currentUser = await client.updateProfile(
+        fullName: fullName.trim(),
+        university: university.trim(),
+        campus: campus.trim(),
+        phone: phone?.trim(),
+        markProfileComplete: true,
+      );
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
+  }
+
+  Future<String?> saveInterestCategoriesWithApi({
+    required ApiClient client,
+    required Set<String> categories,
+  }) async {
+    final user = currentUser;
+    if (user == null) return 'Sign in to continue.';
+    if (categories.isEmpty) {
+      return 'Pick at least one category.';
+    }
+
+    if (client.idToken == null) {
+      setInterestCategories(categories);
+      return null;
+    }
+
+    try {
+      currentUser = await client.updateProfile(
+        interestCategories: categories.toList(),
+      );
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
+  }
+
+  void _applyLocalProfile({
+    required String fullName,
+    required String university,
+    required String campus,
+    String? phone,
+  }) {
+    final user = currentUser;
+    if (user == null) return;
+    currentUser = user.copyWith(
+      fullName: fullName.trim().isEmpty ? user.fullName : fullName.trim(),
+      university:
+          university.trim().isEmpty ? user.university : university.trim(),
+      campus: campus.trim().isEmpty ? user.campus : campus.trim(),
+      phone: phone?.trim().isEmpty ?? true ? user.phone : phone?.trim(),
+      profileComplete: true,
+    );
+    notifyListeners();
+  }
+
+  void setInterestCategories(Set<String> categories) {
+    final user = currentUser;
+    if (user == null) return;
+    currentUser = user.copyWith(interestCategories: categories);
+    notifyListeners();
+  }
+
+  Future<String?> updateProfileWithApi({
+    required ApiClient client,
+    required String fullName,
+    required String university,
+    required String campus,
+    String? phone,
+    String? avatarUrl,
+  }) async {
+    if (client.idToken == null) {
+      updateProfile(
+        fullName: fullName,
+        university: university,
+        campus: campus,
+        phone: phone,
+        avatarUrl: avatarUrl,
+      );
+      return null;
+    }
+
+    try {
+      currentUser = await client.updateProfile(
+        fullName: fullName.trim(),
+        university: university.trim(),
+        campus: campus.trim(),
+        phone: phone?.trim(),
+        avatarUrl: avatarUrl?.trim(),
+      );
+      
+      // Update cache
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cached = prefs.getString('cached_user_profile');
+        if (cached != null) {
+          final profile = jsonDecode(cached) as Map<String, dynamic>;
+          profile['fullName'] = currentUser!.fullName;
+          profile['university'] = currentUser!.university;
+          profile['campus'] = currentUser!.campus;
+          profile['phone'] = currentUser!.phone;
+          profile['avatarUrl'] = currentUser!.avatarUrl;
+          await prefs.setString('cached_user_profile', jsonEncode(profile));
+        }
+      } catch (_) {}
+
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
+  }
+
+  void setCurrentUser(AppUser user) {
+    currentUser = user;
+    notifyListeners();
+  }
+
+  void updateProfile({
+    String? fullName,
+    String? university,
+    String? campus,
+    String? phone,
+    String? avatarUrl,
+  }) {
+    final user = currentUser;
+    if (user == null) return;
+    currentUser = user.copyWith(
+      fullName: fullName ?? user.fullName,
+      university: university ?? user.university,
+      campus: campus ?? user.campus,
+      phone: phone ?? user.phone,
+      avatarUrl: avatarUrl ?? user.avatarUrl,
+    );
+    notifyListeners();
+  }
+
+  String? _validateCredentials(String email, String password) {
+    final trimmedEmail = email.trim().toLowerCase();
+    if (trimmedEmail.isEmpty) return 'Enter your university email.';
+    if (!_isCampusEmail(trimmedEmail)) {
+      return 'Use your campus email address.';
+    }
+    if (password.trim().isEmpty) return 'Enter your password.';
+    return null;
+  }
+
+  bool _isCampusEmail(String email) {
+    return email.contains('@') && email.split('@').last.contains('.');
+  }
+
+  AppUser _userFromEmail(String email, {required bool isNew}) {
+    final localPart = email.split('@').first;
+    final nameParts = localPart.split(RegExp(r'[._-]+'));
+    final fullName = nameParts
+        .where((p) => p.isNotEmpty)
+        .map((p) => '${p[0].toUpperCase()}${p.substring(1)}')
+        .join(' ');
+
+    return AppUser(
+      id: devUserIdForEmail(email),
+      email: email,
+      fullName: fullName.isEmpty ? 'Campus User' : fullName,
+      university: 'State University',
+      campus: 'Main Campus',
+      profileComplete: email == demoEmail || email == jordanDemoEmail,
+      interestCategories: email == demoEmail || email == jordanDemoEmail
+          ? const {'Electronics & Gadgets', 'Books & Stationery'}
+          : const {},
+      createdAt: DateTime.now(),
+      firebaseUid: null,
+      isSeller: email == demoEmail || email == jordanDemoEmail,
+    );
+  }
+}

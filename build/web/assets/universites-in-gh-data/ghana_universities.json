@@ -1,0 +1,1372 @@
+{
+  "meta": {
+    "title": "Ghana Universities & Campuses Dataset",
+    "purpose": "Reference data for UniMarket onboarding — university + campus selection",
+    "compiled": "2026-07-01",
+    "sources": [
+      "Wikipedia: List of universities in Ghana",
+      "Ghana Tertiary Education Commission (GTEC, formerly NAB) accreditation lists",
+      "Individual university websites (uds.edu.gh, ug.edu.gh, uew.edu.gh, umat.edu.gh, etc.)",
+      "uniRank.org 2026 Ghana listing"
+    ],
+    "notes": "Where a university operates multiple physical campuses/sites, each is listed separately under 'campuses'. Single-site institutions have one campus entry equal to the main location. Accreditation and campus status change over time in Ghana (e.g. former UEW satellite campuses at Kumasi/Mampong became the independent AAMUSTED in 2020) — recommend a periodic re-check against GTEC's published list before treating this as permanently authoritative.",
+    "verification_note": "verified:true = campus list cross-checked in this pass directly against the institution's own official website/press releases (not aggregators). Verified so far: AAMUSTED, BCUC, Central, GCTU, KNUST, MUG, PUC, Radford, UCC, UDS, UENR, UEW, UG, UHAS, UMaT. All other entries (verified:false) — mostly single-campus private colleges plus a few still-unconfirmed multi-campus private ones (e.g. Data Link, Anglican, Koforidua Technical University's Somanya campus) — were compiled from secondary sources (Wikipedia, uniRank, aggregator profiles) and have NOT yet been individually confirmed against each institution's own site. Treat those as a starting point, not verified fact, and re-check before shipping to production, especially for any institution your users will actually select often.",
+    "known_correction_history": [
+      "UMaT: added Essikado (SRID) campus, missed in first pass.",
+      "KNUST: removed invented Kumasi City Campus and Sunyani affiliation; confirmed Obuasi campus is real.",
+      "UCC: corrected from 3 campuses to the actual 2 (South/Old Site, North/New Site).",
+      "UENR: added missing Nsoatre campus (3 campuses total, not 2).",
+      "AAMUSTED: removed invented Asokore-Mampong campus; only Kumasi + Asante-Mampong exist.",
+      "GCTU: removed incorrect Tamale campus; corrected to Tesano/Abeka/Kumasi as full campuses plus 4 distance learning centres.",
+      "Central University: removed incorrect Tema campus; added Christ Temple and Kumasi campuses.",
+      "Presbyterian University: added missing Kumasi (Santasi) campus; confirmed 5 total.",
+      "Radford University College: removed unconfirmed Kumasi campus (single-campus institution).",
+      "Zenith University College: removed unconfirmed Kumasi campus, downgraded to unverified single Accra campus pending confirmation."
+    ]
+  },
+  "universities": [
+    {
+      "id": "ug",
+      "name": "University of Ghana",
+      "shortName": "UG",
+      "type": "public",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Legon Campus",
+          "town": "Legon, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        },
+        {
+          "name": "Korle-Bu Campus (College of Health Sciences)",
+          "town": "Korle-Bu, Accra",
+          "region": "Greater Accra"
+        },
+        {
+          "name": "Accra City Campus",
+          "town": "Accra Central",
+          "region": "Greater Accra"
+        },
+        {
+          "name": "Kumasi City Campus",
+          "town": "Adum, Kumasi",
+          "region": "Ashanti"
+        },
+        {
+          "name": "Takoradi City Campus",
+          "town": "Chapel Hill, Takoradi",
+          "region": "Western"
+        }
+      ],
+      "verified": true
+    },
+    {
+      "id": "knust",
+      "name": "Kwame Nkrumah University of Science and Technology",
+      "shortName": "KNUST",
+      "type": "public",
+      "region": "Ashanti",
+      "verified": true,
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Kumasi",
+          "region": "Ashanti",
+          "isMain": true
+        },
+        {
+          "name": "Obuasi Campus",
+          "town": "Obuasi",
+          "region": "Ashanti"
+        }
+      ]
+    },
+    {
+      "id": "ucc",
+      "name": "University of Cape Coast",
+      "shortName": "UCC",
+      "type": "public",
+      "region": "Central",
+      "verified": true,
+      "campuses": [
+        {
+          "name": "South Campus (Old Site)",
+          "town": "Cape Coast",
+          "region": "Central",
+          "isMain": true
+        },
+        {
+          "name": "North Campus (New Site)",
+          "town": "Cape Coast",
+          "region": "Central"
+        }
+      ]
+    },
+    {
+      "id": "uew",
+      "name": "University of Education, Winneba",
+      "shortName": "UEW",
+      "type": "public",
+      "region": "Central",
+      "campuses": [
+        {
+          "name": "Winneba North Campus (Central Administration)",
+          "town": "Winneba",
+          "region": "Central",
+          "isMain": true
+        },
+        {
+          "name": "Winneba Central Campus",
+          "town": "Winneba",
+          "region": "Central"
+        },
+        {
+          "name": "Winneba South Campus",
+          "town": "Winneba",
+          "region": "Central"
+        },
+        {
+          "name": "Ajumako Campus (College of Languages Education)",
+          "town": "Ajumako",
+          "region": "Central"
+        }
+      ],
+      "verified": true
+    },
+    {
+      "id": "uds",
+      "name": "University for Development Studies",
+      "shortName": "UDS",
+      "type": "public",
+      "region": "Northern",
+      "campuses": [
+        {
+          "name": "Tamale Campus (Central Administration, Medicine)",
+          "town": "Tamale",
+          "region": "Northern",
+          "isMain": true
+        },
+        {
+          "name": "Nyankpala Campus (Agriculture, Engineering)",
+          "town": "Nyankpala",
+          "region": "Northern"
+        },
+        {
+          "name": "Tamale City Campus (Business School, Graduate School)",
+          "town": "Tamale",
+          "region": "Northern"
+        }
+      ],
+      "verified": true
+    },
+    {
+      "id": "cktutas",
+      "name": "CK Tedam University of Technology and Applied Sciences",
+      "shortName": "CKT-UTAS",
+      "type": "public",
+      "region": "Upper East",
+      "campuses": [
+        {
+          "name": "Navrongo Campus",
+          "town": "Navrongo",
+          "region": "Upper East",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "sdd-ubids",
+      "name": "Simon Diedong Dombo University of Business and Integrated Development Studies",
+      "shortName": "SDD-UBIDS",
+      "type": "public",
+      "region": "Upper West",
+      "campuses": [
+        {
+          "name": "Wa Campus",
+          "town": "Wa",
+          "region": "Upper West",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "aamusted",
+      "name": "Akenten Appiah-Menka University of Skills Training and Entrepreneurial Development",
+      "shortName": "AAMUSTED",
+      "type": "public",
+      "region": "Ashanti",
+      "verified": true,
+      "campuses": [
+        {
+          "name": "Kumasi Campus (Main, former COLTEK, Tanoso)",
+          "town": "Kumasi",
+          "region": "Ashanti",
+          "isMain": true
+        },
+        {
+          "name": "Asante-Mampong Campus (former CAGRIC)",
+          "town": "Asante-Mampong",
+          "region": "Ashanti"
+        }
+      ]
+    },
+    {
+      "id": "upsa",
+      "name": "University of Professional Studies, Accra",
+      "shortName": "UPSA",
+      "type": "public",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Legon, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "umat",
+      "name": "University of Mines and Technology",
+      "shortName": "UMaT",
+      "type": "public",
+      "region": "Western",
+      "verified": true,
+      "campuses": [
+        {
+          "name": "Tarkwa Campus (Main)",
+          "town": "Tarkwa",
+          "region": "Western",
+          "isMain": true
+        },
+        {
+          "name": "Essikado Campus (School of Railways and Infrastructure Development, SRID)",
+          "town": "Essikado, Sekondi-Takoradi",
+          "region": "Western"
+        }
+      ]
+    },
+    {
+      "id": "uhas",
+      "name": "University of Health and Allied Sciences",
+      "shortName": "UHAS",
+      "type": "public",
+      "region": "Volta",
+      "campuses": [
+        {
+          "name": "Ho Campus",
+          "town": "Ho",
+          "region": "Volta",
+          "isMain": true
+        },
+        {
+          "name": "Hohoe Campus",
+          "town": "Hohoe",
+          "region": "Volta"
+        }
+      ],
+      "verified": true
+    },
+    {
+      "id": "uenr",
+      "name": "University of Energy and Natural Resources",
+      "shortName": "UENR",
+      "type": "public",
+      "region": "Bono",
+      "verified": true,
+      "campuses": [
+        {
+          "name": "Sunyani Campus (Main)",
+          "town": "Sunyani",
+          "region": "Bono",
+          "isMain": true
+        },
+        {
+          "name": "Nsoatre Campus (School of Engineering)",
+          "town": "Nsoatre",
+          "region": "Bono"
+        },
+        {
+          "name": "Dormaa Campus (School of Agriculture and Technology)",
+          "town": "Dormaa Ahenkro",
+          "region": "Bono"
+        }
+      ]
+    },
+    {
+      "id": "uesd",
+      "name": "University of Environment and Sustainable Development",
+      "shortName": "UESD",
+      "type": "public",
+      "region": "Eastern",
+      "campuses": [
+        {
+          "name": "Somanya Campus",
+          "town": "Somanya",
+          "region": "Eastern",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "gimpa",
+      "name": "Ghana Institute of Management and Public Administration",
+      "shortName": "GIMPA",
+      "type": "public",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Greenhill Campus",
+          "town": "Legon, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "gctu",
+      "name": "Ghana Communication Technology University",
+      "shortName": "GCTU",
+      "type": "public",
+      "region": "Greater Accra",
+      "verified": true,
+      "campuses": [
+        {
+          "name": "Tesano Campus (Main)",
+          "town": "Tesano, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        },
+        {
+          "name": "Abeka Campus",
+          "town": "Abeka, Accra",
+          "region": "Greater Accra"
+        },
+        {
+          "name": "Kumasi Campus",
+          "town": "Kumasi",
+          "region": "Ashanti"
+        },
+        {
+          "name": "Nungua Learning Centre",
+          "town": "Nungua, Accra",
+          "region": "Greater Accra"
+        },
+        {
+          "name": "Ho Learning Centre",
+          "town": "Ho",
+          "region": "Volta"
+        },
+        {
+          "name": "Koforidua Learning Centre",
+          "town": "Koforidua",
+          "region": "Eastern"
+        },
+        {
+          "name": "Takoradi Learning Centre",
+          "town": "Takoradi",
+          "region": "Western"
+        }
+      ]
+    },
+    {
+      "id": "atu",
+      "name": "Accra Technical University",
+      "shortName": "ATU",
+      "type": "public-technical",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "btu",
+      "name": "Bolgatanga Technical University",
+      "shortName": "BTU",
+      "type": "public-technical",
+      "region": "Upper East",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Bolgatanga",
+          "region": "Upper East",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "cctu",
+      "name": "Cape Coast Technical University",
+      "shortName": "CCTU",
+      "type": "public-technical",
+      "region": "Central",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Cape Coast",
+          "region": "Central",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "kstu",
+      "name": "Kumasi Technical University",
+      "shortName": "KsTU",
+      "type": "public-technical",
+      "region": "Ashanti",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Kumasi",
+          "region": "Ashanti",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "ktu",
+      "name": "Koforidua Technical University",
+      "shortName": "KTU",
+      "type": "public-technical",
+      "region": "Eastern",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Koforidua",
+          "region": "Eastern",
+          "isMain": true
+        },
+        {
+          "name": "Somanya Campus",
+          "town": "Somanya",
+          "region": "Eastern"
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "tatu",
+      "name": "Tamale Technical University",
+      "shortName": "TaTU",
+      "type": "public-technical",
+      "region": "Northern",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Tamale",
+          "region": "Northern",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "htu",
+      "name": "Ho Technical University",
+      "shortName": "HTU",
+      "type": "public-technical",
+      "region": "Volta",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Ho",
+          "region": "Volta",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "ttu",
+      "name": "Takoradi Technical University",
+      "shortName": "TTU",
+      "type": "public-technical",
+      "region": "Western",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Takoradi",
+          "region": "Western",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "stu",
+      "name": "Sunyani Technical University",
+      "shortName": "STU",
+      "type": "public-technical",
+      "region": "Bono",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Sunyani",
+          "region": "Bono",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "wtu",
+      "name": "Wa Technical University (formerly Wa Polytechnic)",
+      "shortName": "WTU",
+      "type": "public-technical",
+      "region": "Upper West",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Wa",
+          "region": "Upper West",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "rmu",
+      "name": "Regional Maritime University",
+      "shortName": "RMU",
+      "type": "public-regional",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Nungua, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "gij",
+      "name": "Ghana Institute of Journalism",
+      "shortName": "GIJ",
+      "type": "public",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "gism",
+      "name": "Ghana Institute of Surveying and Mapping",
+      "shortName": "GISM",
+      "type": "public",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "nafti",
+      "name": "National Film and Television Institute",
+      "shortName": "NAFTI",
+      "type": "public",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "ashesi",
+      "name": "Ashesi University",
+      "shortName": "Ashesi",
+      "type": "private",
+      "region": "Eastern",
+      "campuses": [
+        {
+          "name": "Berekuso Campus",
+          "town": "Berekuso",
+          "region": "Eastern",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "central",
+      "name": "Central University",
+      "shortName": "Central",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Miotso Campus (Main)",
+          "town": "Miotso, near Dawhenya",
+          "region": "Greater Accra",
+          "isMain": true
+        },
+        {
+          "name": "Mataheko Campus",
+          "town": "Mataheko, Accra",
+          "region": "Greater Accra"
+        },
+        {
+          "name": "Christ Temple Campus",
+          "town": "Ring Road West, Accra",
+          "region": "Greater Accra"
+        },
+        {
+          "name": "Kumasi Campus",
+          "town": "Kumasi",
+          "region": "Ashanti"
+        }
+      ],
+      "verified": true
+    },
+    {
+      "id": "vvu",
+      "name": "Valley View University",
+      "shortName": "VVU",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Oyibi Campus (Main)",
+          "town": "Oyibi",
+          "region": "Greater Accra",
+          "isMain": true
+        },
+        {
+          "name": "Techiman Campus",
+          "town": "Techiman",
+          "region": "Bono East"
+        },
+        {
+          "name": "Kumasi Campus",
+          "town": "Kumasi",
+          "region": "Ashanti"
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "pentvars",
+      "name": "Pentecost University",
+      "shortName": "PentVars",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Sowutuom Campus",
+          "town": "Sowutuom, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "anu",
+      "name": "All Nations University",
+      "shortName": "ANU",
+      "type": "private",
+      "region": "Eastern",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Koforidua",
+          "region": "Eastern",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "presbyuc",
+      "name": "Presbyterian University, Ghana",
+      "shortName": "PUC",
+      "type": "private",
+      "region": "Eastern",
+      "campuses": [
+        {
+          "name": "Okwahu Campus (Main)",
+          "town": "Abetifi-Kwahu",
+          "region": "Eastern",
+          "isMain": true
+        },
+        {
+          "name": "Akuapem Campus",
+          "town": "Akropong-Akuapem",
+          "region": "Eastern"
+        },
+        {
+          "name": "Asante Akyem Campus",
+          "town": "Agogo",
+          "region": "Ashanti"
+        },
+        {
+          "name": "Tema Campus",
+          "town": "Community 11, Tema",
+          "region": "Greater Accra"
+        },
+        {
+          "name": "Kumasi Campus (Santasi)",
+          "town": "Santasi, Kumasi",
+          "region": "Ashanti"
+        }
+      ],
+      "verified": true
+    },
+    {
+      "id": "methodist",
+      "name": "Methodist University Ghana",
+      "shortName": "MUG",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Dansoman Campus",
+          "town": "Dansoman, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        },
+        {
+          "name": "Wenchi Campus",
+          "town": "Wenchi",
+          "region": "Bono"
+        }
+      ],
+      "verified": true
+    },
+    {
+      "id": "csuc",
+      "name": "Christian Service University College",
+      "shortName": "CSUC",
+      "type": "private",
+      "region": "Ashanti",
+      "campuses": [
+        {
+          "name": "Santasi Campus",
+          "town": "Santasi, Kumasi",
+          "region": "Ashanti",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "regent",
+      "name": "Regent University College of Science and Technology",
+      "shortName": "Regent",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Dansoman, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "wiuc",
+      "name": "Wisconsin International University College",
+      "shortName": "WIUC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Agbogba Campus",
+          "town": "Agbogba Junction, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "cug",
+      "name": "Catholic University College of Ghana",
+      "shortName": "CUG",
+      "type": "private",
+      "region": "Bono",
+      "campuses": [
+        {
+          "name": "Fiapre Campus",
+          "town": "Fiapre, Sunyani",
+          "region": "Bono",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "epuc",
+      "name": "Evangelical Presbyterian University College",
+      "shortName": "EPUC",
+      "type": "private",
+      "region": "Volta",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Ho",
+          "region": "Volta",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "gbuc",
+      "name": "Ghana Baptist University College",
+      "shortName": "GBUC",
+      "type": "private",
+      "region": "Ashanti",
+      "campuses": [
+        {
+          "name": "Abuakwa Campus",
+          "town": "Abuakwa, Kumasi",
+          "region": "Ashanti",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "garden-city",
+      "name": "Garden City University College",
+      "shortName": "GCUC",
+      "type": "private",
+      "region": "Ashanti",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Kumasi",
+          "region": "Ashanti",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "radford",
+      "name": "Radford University College",
+      "shortName": "Radford",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "East Legon Campus (Main)",
+          "town": "East Legon, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": true
+    },
+    {
+      "id": "spiritan",
+      "name": "Spiritan University College",
+      "shortName": "Spiritan",
+      "type": "private",
+      "region": "Ashanti",
+      "campuses": [
+        {
+          "name": "Ejisu Campus",
+          "town": "Ejisu",
+          "region": "Ashanti",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "data-link",
+      "name": "Data Link Institute / University College",
+      "shortName": "DLUC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Tema Campus",
+          "town": "Tema",
+          "region": "Greater Accra",
+          "isMain": true
+        },
+        {
+          "name": "Cape Coast Campus",
+          "town": "Cape Coast",
+          "region": "Central"
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "mountcrest",
+      "name": "Mountcrest University College",
+      "shortName": "MCUC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Kanda Campus",
+          "town": "Kanda, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "ucaes",
+      "name": "University College of Agriculture and Environmental Studies",
+      "shortName": "UCAES",
+      "type": "private",
+      "region": "Eastern",
+      "campuses": [
+        {
+          "name": "Bunso Campus",
+          "town": "Bunso",
+          "region": "Eastern",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "kings",
+      "name": "Kings University College",
+      "shortName": "KUC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Aplaku Campus",
+          "town": "Aplaku Hills, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "maranatha",
+      "name": "Maranatha University College",
+      "shortName": "MUC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Sowutuom Campus",
+          "town": "Sowutuom, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "palm",
+      "name": "Palm University College",
+      "shortName": "PaUC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Manya Campus",
+          "town": "Shai Hills",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "aucc",
+      "name": "African University College of Communications",
+      "shortName": "AUCC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Adabraka Campus",
+          "town": "Adabraka, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "ait",
+      "name": "Accra Institute of Technology",
+      "shortName": "AIT",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Cantonments Campus",
+          "town": "Cantonments, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "iucg",
+      "name": "Islamic University College, Ghana",
+      "shortName": "IUCG",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "East Legon Campus",
+          "town": "East Legon, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "knutsford",
+      "name": "Knutsford University College",
+      "shortName": "Knutsford",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "East Legon Campus",
+          "town": "East Legon, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "lancaster-gh",
+      "name": "Lancaster University Ghana",
+      "shortName": "LUG",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Accra Campus",
+          "town": "Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "webster-gh",
+      "name": "Webster University Ghana Campus",
+      "shortName": "Webster",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "East Legon Campus",
+          "town": "East Legon, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "zenith",
+      "name": "Zenith University College",
+      "shortName": "ZUC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "academic-city",
+      "name": "Academic City University College",
+      "shortName": "ACU",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Haatso Campus",
+          "town": "Haatso, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "bluecrest",
+      "name": "BlueCrest College / University College",
+      "shortName": "BCUC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Kokomlemle Campus (Main)",
+          "town": "Kokomlemle, Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": true
+    },
+    {
+      "id": "catholic-institute",
+      "name": "Catholic Institute of Business and Technology",
+      "shortName": "CIBT",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Accra North Campus",
+          "town": "Accra North",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "anglican",
+      "name": "Anglican University College of Technology",
+      "shortName": "ANG.U.TECH",
+      "type": "private",
+      "region": "Bono East",
+      "campuses": [
+        {
+          "name": "Nkoranza Campus",
+          "town": "Nkoranza",
+          "region": "Bono East",
+          "isMain": true
+        },
+        {
+          "name": "Teshie Campus",
+          "town": "Teshie, Accra",
+          "region": "Greater Accra"
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "baptist",
+      "name": "Ghana Baptist University College",
+      "shortName": "GBUC2",
+      "type": "private",
+      "region": "Ashanti",
+      "campuses": [
+        {
+          "name": "Abuakwa Campus",
+          "town": "Abuakwa-Kumasi",
+          "region": "Ashanti",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "christ-apostolic",
+      "name": "Christ Apostolic University College",
+      "shortName": "CAUC",
+      "type": "private",
+      "region": "Ashanti",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Kumasi",
+          "region": "Ashanti",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "dominion",
+      "name": "Dominion University College",
+      "shortName": "DUC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "ghana-christian",
+      "name": "Ghana Christian University College",
+      "shortName": "GCU",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "marshalls",
+      "name": "Marshalls University College",
+      "shortName": "MUC2",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "perez",
+      "name": "Perez University College",
+      "shortName": "Perez",
+      "type": "private",
+      "region": "Central",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Winneba",
+          "region": "Central",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "west-end",
+      "name": "West End University College",
+      "shortName": "WEUC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "advanced-business",
+      "name": "Advanced Business College",
+      "shortName": "ABC",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Accra",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "kaaf",
+      "name": "KAAF University College",
+      "shortName": "KAAF",
+      "type": "private",
+      "region": "Central",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Gomoa Fetteh Kakraba",
+          "region": "Central",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "heritage-christian",
+      "name": "Heritage Christian University College",
+      "shortName": "HCU",
+      "type": "private",
+      "region": "Greater Accra",
+      "campuses": [
+        {
+          "name": "Main Campus",
+          "town": "Amasaman",
+          "region": "Greater Accra",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    },
+    {
+      "id": "ensign",
+      "name": "Ensign Global University College",
+      "shortName": "Ensign",
+      "type": "private",
+      "region": "Eastern",
+      "campuses": [
+        {
+          "name": "Kpong Campus",
+          "town": "Kpong",
+          "region": "Eastern",
+          "isMain": true
+        }
+      ],
+      "verified": false
+    }
+  ]
+}

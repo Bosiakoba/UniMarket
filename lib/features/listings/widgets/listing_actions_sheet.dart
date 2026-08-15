@@ -1,0 +1,366 @@
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../core/auth/auth_gate.dart';
+import '../../../core/models/listing_availability.dart';
+import '../../../core/models/listing_item.dart';
+import '../../../core/models/seller_listing_record.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/uni_button.dart';
+import '../../sell/edit_listing_screen.dart';
+import '../../seller/seller_profile_screen.dart';
+import 'report_listing_sheet.dart';
+
+enum _ListingAction {
+  edit,
+  recordSale,
+  restock,
+  relist,
+  delete,
+  contact,
+  call,
+  viewSeller,
+  report,
+}
+
+class ListingActionsSheet extends StatelessWidget {
+  const ListingActionsSheet.owner({
+    super.key,
+    required this.listing,
+    required this.record,
+    required this.onRecordSale,
+    required this.onRestock,
+    required this.onRelist,
+    required this.onDelete,
+  })  : isOwner = true,
+        phone = null,
+        onContact = null;
+
+  const ListingActionsSheet.buyer({
+    super.key,
+    required this.listing,
+    required this.phone,
+    required this.onContact,
+  })  : isOwner = false,
+        record = null,
+        onRecordSale = null,
+        onRestock = null,
+        onRelist = null,
+        onDelete = null;
+
+  final bool isOwner;
+  final ListingItem listing;
+  final SellerListingRecord? record;
+  final String? phone;
+  final VoidCallback? onContact;
+  final VoidCallback? onRecordSale;
+  final VoidCallback? onRestock;
+  final VoidCallback? onRelist;
+  final Future<void> Function()? onDelete;
+
+  static Future<void> showOwner(
+    BuildContext context, {
+    required ListingItem listing,
+    required SellerListingRecord record,
+    required VoidCallback onRecordSale,
+    required VoidCallback onRestock,
+    required VoidCallback onRelist,
+    required Future<void> Function() onDelete,
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => ListingActionsSheet.owner(
+        listing: listing,
+        record: record,
+        onRecordSale: onRecordSale,
+        onRestock: onRestock,
+        onRelist: onRelist,
+        onDelete: onDelete,
+      ),
+    );
+  }
+
+  static Future<void> showBuyer(
+    BuildContext context, {
+    required ListingItem listing,
+    required String phone,
+    required VoidCallback onContact,
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => ListingActionsSheet.buyer(
+        listing: listing,
+        phone: phone,
+        onContact: onContact,
+      ),
+    );
+  }
+
+  List<_ListingAction> get _actions {
+    if (isOwner) {
+      final current = record!.listing;
+      final actions = <_ListingAction>[_ListingAction.edit];
+
+      if (current.isBrowseable) {
+        actions.add(_ListingAction.recordSale);
+      } else if (current.availabilityType == ListingAvailabilityType.stock) {
+        actions.add(_ListingAction.restock);
+      } else if (current.availabilityType == ListingAvailabilityType.unique) {
+        actions.add(_ListingAction.relist);
+      }
+
+      actions.add(_ListingAction.delete);
+      return actions;
+    }
+    return [
+      _ListingAction.contact,
+      _ListingAction.call,
+      _ListingAction.viewSeller,
+      _ListingAction.report,
+    ];
+  }
+
+  String _label(_ListingAction action) {
+    return switch (action) {
+      _ListingAction.edit => 'Edit listing',
+      _ListingAction.recordSale =>
+        ListingAvailabilityRules.recordSaleLabel(listing.availabilityType),
+      _ListingAction.restock => 'Restock listing',
+      _ListingAction.relist => 'Relist item',
+      _ListingAction.delete => 'Delete listing',
+      _ListingAction.contact => 'Message seller',
+      _ListingAction.call => 'Call seller',
+      _ListingAction.viewSeller => 'View seller profile',
+      _ListingAction.report => 'Report listing',
+    };
+  }
+
+  IconData _icon(_ListingAction action) {
+    return switch (action) {
+      _ListingAction.edit => LucideIcons.pencil,
+      _ListingAction.recordSale => LucideIcons.checkCircle2,
+      _ListingAction.restock => LucideIcons.packagePlus,
+      _ListingAction.relist => LucideIcons.rotateCcw,
+      _ListingAction.delete => LucideIcons.trash2,
+      _ListingAction.contact => LucideIcons.messageCircle,
+      _ListingAction.call => LucideIcons.phone,
+      _ListingAction.viewSeller => LucideIcons.user,
+      _ListingAction.report => LucideIcons.flag,
+    };
+  }
+
+  Future<void> _handleAction(BuildContext context, _ListingAction action) async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final listingId = listing.id;
+    final sellerName = listing.sellerName;
+    final phoneNumber = phone;
+
+    navigator.pop();
+
+    switch (action) {
+      case _ListingAction.edit:
+        await navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => EditListingScreen(listingId: listingId),
+          ),
+        );
+      case _ListingAction.recordSale:
+        onRecordSale?.call();
+      case _ListingAction.restock:
+        onRestock?.call();
+      case _ListingAction.relist:
+        onRelist?.call();
+      case _ListingAction.delete:
+        await onDelete?.call();
+      case _ListingAction.contact:
+        onContact?.call();
+      case _ListingAction.call:
+        if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
+          final url = Uri.parse('tel:${phoneNumber.replaceAll(' ', '')}');
+          if (await canLaunchUrl(url)) {
+            await launchUrl(url);
+          } else {
+            messenger.showSnackBar(
+              SnackBar(content: Text('Could not launch phone dialer for $phoneNumber')),
+            );
+          }
+        } else {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Seller phone number is not available.')),
+          );
+        }
+      case _ListingAction.viewSeller:
+        await navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => SellerProfileScreen(
+              sellerName: sellerName,
+              highlightListing: listing,
+            ),
+          ),
+        );
+      case _ListingAction.report:
+        final allowed = await ensureRegisteredAccount(
+          navigator.context,
+          reason: 'Sign in to report a listing.',
+        );
+        if (!allowed || !navigator.mounted) return;
+        await ReportListingSheet.show(
+          navigator.context,
+          listing,
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    final actions = _actions;
+    final regularActions =
+        actions.where((a) => a != _ListingAction.delete).toList();
+    final destructive =
+        actions.where((a) => a == _ListingAction.delete).toList();
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            isOwner ? 'Manage listing' : 'Contact seller',
+            style: AppTypography.h3(),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            listing.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.caption(color: AppColors.textSecondary),
+          ),
+          if (isOwner && record != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              '${record!.statusLabel} · ${record!.views} views · ${record!.messages} inquiries',
+              style: AppTypography.caption(),
+            ),
+          ],
+          const SizedBox(height: 16),
+          if (!isOwner) ...[
+            UniButton(
+              label: 'Message seller',
+              variant: UniButtonVariant.green,
+              onPressed: () => _handleAction(context, _ListingAction.contact),
+            ),
+            const SizedBox(height: 12),
+          ],
+          ...regularActions
+              .where((a) => isOwner || a != _ListingAction.contact)
+              .map(
+            (action) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: _ActionTile(
+                  icon: _icon(action),
+                  label: _label(action),
+                  onTap: () => _handleAction(context, action),
+                ),
+              );
+            },
+          ),
+          if (destructive.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            ...destructive.map(
+              (action) => _ActionTile(
+                icon: _icon(action),
+                label: _label(action),
+                destructive: true,
+                onTap: () => _handleAction(context, action),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Close',
+              style: AppTypography.bodyBold(color: AppColors.textPrimary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = destructive ? Colors.red : AppColors.textPrimary;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTypography.bodyBold(color: color),
+                ),
+              ),
+              Icon(
+                LucideIcons.chevronRight,
+                size: 16,
+                color: AppColors.textTertiary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

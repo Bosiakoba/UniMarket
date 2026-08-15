@@ -1,0 +1,536 @@
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../core/api/session_mode.dart';
+import '../../core/api/media_url.dart';
+import '../../core/auth/auth_gate.dart';
+import '../../core/models/listing_item.dart';
+import '../../core/navigation/listing_navigation.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_typography.dart';
+import '../../core/widgets/api_client_scope.dart';
+import '../../core/widgets/listing_image.dart';
+import '../../core/widgets/seller_store_scope.dart';
+import '../../core/widgets/user_session_scope.dart';
+import '../../core/widgets/verified_badge.dart';
+import '../../routes/app_routes.dart';
+import '../sell/sell_entry.dart';
+import 'edit_profile_screen.dart';
+import 'settings_screen.dart';
+import '../shell/main_shell.dart';
+import 'my_listings_screen.dart';
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshSellerStatus());
+  }
+
+  Future<void> _refreshSellerStatus() async {
+    if (!mounted) return;
+
+    final session = UserSessionScope.of(context);
+    final store = SellerStoreScope.of(context);
+    final client = ApiClientScope.of(context);
+
+    if (!isLiveSession(client) || session.currentUser == null) return;
+
+    try {
+      await store.refreshApplicationStatus(
+        client: client,
+        onUserUpdated: session.setCurrentUser,
+      );
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sellerStore = SellerStoreScope.of(context);
+    final session = UserSessionScope.of(context);
+    final user = session.currentUser;
+
+    return ListenableBuilder(
+      listenable: Listenable.merge([sellerStore, session]),
+      builder: (context, _) {
+        final isGuest = session.isGuest;
+        final canSignOut = session.isRegistered;
+        final isSeller = sellerStore.isSeller;
+        final sellerPending = sellerStore.sellerApplicationPending;
+        final sellerRejected = sellerStore.sellerApplicationRejected;
+        final isVerified = sellerStore.isVerified;
+        final listingCount = sellerStore.activeCount;
+        final ratingLabel = sellerStore.sellerReviewCount == 0
+            ? '-'
+            : sellerStore.sellerRating.toStringAsFixed(1);
+        final displayName =
+            user?.fullName ??
+            sellerStore.sellerApplication?.fullName ??
+            'Guest';
+        final storeLabel = sellerStore.sellerApplication?.storeName;
+
+        return ColoredBox(
+          color: AppColors.white,
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 12, 10),
+                  child: Row(
+                    children: [
+                      Text('Profile', style: AppTypography.h2()),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SettingsScreen(),
+                          ),
+                        ),
+                        icon: const Icon(LucideIcons.settings, size: 22),
+                        color: AppColors.textPrimary,
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          CircleAvatar(
+                            radius: 44,
+                            backgroundColor: AppColors.surfaceMuted,
+                            backgroundImage: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
+                                ? NetworkImage(MediaUrlResolver.resolve(user.avatarUrl!))
+                                : null,
+                            child: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
+                                ? null
+                                : Text(
+                                    displayName[0],
+                                    style: AppTypography.h1(
+                                      color: AppColors.forestGreen,
+                                    ),
+                                  ),
+                          ),
+                          if (isVerified)
+                            const Positioned(
+                              bottom: 0,
+                              right: -2,
+                              child: VerifiedBadge(compact: true),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(displayName, style: AppTypography.h3()),
+                      if (storeLabel != null) ...[
+                        const SizedBox(height: 4),
+                        Text(storeLabel, style: AppTypography.caption()),
+                      ],
+                      const SizedBox(height: 4),
+                      Text(
+                        user == null
+                            ? 'Sign in to sync your campus profile'
+                            : '${user.university} · ${user.campus}',
+                        style: AppTypography.caption(),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatCard(
+                              value: '$listingCount',
+                              label: 'Listings',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _StatCard(
+                              value: ratingLabel,
+                              label: 'Rating',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _StatCard(
+                              value: '${user?.followersCount ?? 0}',
+                              label: 'Followers',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      0,
+                      20,
+                      floatingChromeBottomInset(context),
+                    ),
+                    children: [
+                      if (isGuest)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceMuted,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                LucideIcons.user,
+                                size: 18,
+                                color: AppColors.forestGreen,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Browsing as guest. Sign in when you want '
+                                  'to message sellers or start selling.',
+                                  style: AppTypography.caption(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      _SectionTitle('Seller'),
+                      if (sellerPending)
+                        _ProfileTile(
+                          icon: LucideIcons.clock3,
+                          title: 'Seller application',
+                          subtitle: 'Campus review in progress',
+                          needsAttention: true,
+                          onTap: () => SellEntry.openSellerApplication(context),
+                        )
+                      else if (sellerRejected)
+                        _ProfileTile(
+                          icon: LucideIcons.xCircle,
+                          title: 'Seller application',
+                          subtitle: 'Needs update — tap to review',
+                          needsAttention: true,
+                          onTap: () => SellEntry.openSellerApplication(context),
+                        )
+                      else if (!isSeller)
+                        _ProfileTile(
+                          icon: LucideIcons.store,
+                          title: 'Apply to sell',
+                          subtitle: 'Submit campus details to start selling',
+                          onTap: () => SellEntry.openSellerApplication(context),
+                        ),
+                      _ProfileTile(
+                        icon: LucideIcons.shieldCheck,
+                        title: 'Verified badge',
+                        subtitle: isVerified
+                            ? 'Verified campus seller'
+                            : sellerStore.verificationPending
+                            ? 'Badge review in progress'
+                            : sellerStore.canApplyForVerification
+                            ? 'You qualify — apply now'
+                            : 'Unlock after meeting seller criteria',
+                        onTap: () => SellEntry.openVerifiedApplication(context),
+                      ),
+                      _ProfileTile(
+                        icon: LucideIcons.plusCircle,
+                        title: 'Post a listing',
+                        subtitle: isSeller
+                            ? 'Sell to students on campus'
+                            : sellerPending
+                            ? 'Waiting for seller approval'
+                            : sellerRejected
+                            ? 'Update your application first'
+                            : 'Apply to sell first',
+                        onTap: () => SellEntry.openPostFlow(context),
+                      ),
+                      _ProfileTile(
+                        icon: LucideIcons.package,
+                        title: 'My listings',
+                        subtitle:
+                            '$listingCount active',
+                        onTap: () async {
+                          final allowed = await ensureRegisteredAccount(
+                            context,
+                            reason: 'Sign in to view your listings.',
+                          );
+                          if (!context.mounted || !allowed) return;
+                          await Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const MyListingsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _SectionTitle('Account'),
+                      _ProfileTile(
+                        icon: LucideIcons.user,
+                        title: 'Edit profile',
+                        onTap: () async {
+                          final allowed = await ensureRegisteredAccount(
+                            context,
+                            reason: 'Sign in to edit your profile.',
+                          );
+                          if (!context.mounted || !allowed) return;
+                          await Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const EditProfileScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      _ProfileTile(
+                        icon: LucideIcons.messageCircle,
+                        title: 'Messages',
+                        onTap: () async {
+                          final allowed = await ensureRegisteredAccount(
+                            context,
+                            reason: 'Sign in to view your messages.',
+                          );
+                          if (!context.mounted || !allowed) return;
+                          await Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.messages);
+                        },
+                      ),
+                      _ProfileTile(
+                        icon: LucideIcons.bell,
+                        title: 'Notifications',
+                        onTap: () async {
+                          final allowed = await ensureRegisteredAccount(
+                            context,
+                            reason: 'Sign in to view notifications.',
+                          );
+                          if (!context.mounted || !allowed) return;
+                          await Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.notifications);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _SectionTitle('Recent listings'),
+                      ...sellerStore.listingRecords
+                          .where((r) => r.isActive)
+                          .take(3)
+                          .map(
+                            (record) => _RecentListingRow(
+                              listing: record.listing,
+                              onTap: () =>
+                                  _openListing(context, record.listing),
+                            ),
+                          ),
+                      if (canSignOut) ...[
+                        const SizedBox(height: 20),
+                        Center(
+                          child: TextButton(
+                            onPressed: () => SettingsScreen.signOut(context),
+                            child: Text(
+                              'Sign out',
+                              style: AppTypography.body(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _openListing(BuildContext context, ListingItem listing) {
+    ListingNavigation.openDetail(
+      context,
+      listing: listing,
+      catalog: SellerStoreScope.of(context),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Text(value, style: AppTypography.bodyBold()),
+          const SizedBox(height: 2),
+          Text(label, style: AppTypography.caption()),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6, top: 4),
+      child: Text(text, style: AppTypography.bodyBold()),
+    );
+  }
+}
+
+class _ProfileTile extends StatelessWidget {
+  const _ProfileTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.needsAttention = false,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final bool needsAttention;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        child: Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, size: 20, color: AppColors.textPrimary),
+                if (needsAttention)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: AppColors.dealRed,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.white, width: 1.5),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: AppTypography.body()),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: AppTypography.caption(
+                        color: needsAttention
+                            ? AppColors.dealRed
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const Icon(
+              LucideIcons.chevronRight,
+              size: 16,
+              color: AppColors.textTertiary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecentListingRow extends StatelessWidget {
+  const _RecentListingRow({required this.listing, required this.onTap});
+
+  final ListingItem listing;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: ListingImage(
+                source: listing.primaryPhotoSource,
+                width: 52,
+                height: 52,
+                fit: BoxFit.cover,
+                cacheWidth: 120,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    listing.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodyBold(),
+                  ),
+                  Text(listing.formattedPrice, style: AppTypography.caption()),
+                ],
+              ),
+            ),
+            const Icon(
+              LucideIcons.chevronRight,
+              size: 16,
+              color: AppColors.textTertiary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

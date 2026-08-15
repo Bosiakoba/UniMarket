@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="UniMarket - The ultimate marketplace for university students. Buy, sell, and discover items within your campus community.">
+  
+  <!-- Responsive viewport -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+
+  <!-- SEO Meta Tags -->
+  <meta name="keywords" content="university marketplace, student marketplace, campus marketplace, buy sell, uni market">
+  <meta name="author" content="UniMarket">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="UniMarket - University Marketplace">
+  <meta property="og:description" content="The ultimate marketplace for university students. Buy, sell, and discover items within your campus community.">
+  <meta property="og:image" content="icons/Icon-512.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="UniMarket - University Marketplace">
+  <meta property="twitter:description" content="The ultimate marketplace for university students. Buy, sell, and discover items within your campus community.">
+  <meta property="twitter:image" content="icons/Icon-512.png">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="UniMarket">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <!-- Theme color -->
+  <meta name="theme-color" content="#0175C2">
+
+  <title>UniMarket - University Marketplace</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0b1a0e;
+    }
+    #loading-indicator {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #112817 0%, #06110a 100%);
+      z-index: 99999;
+      opacity: 1;
+      transition: opacity 0.4s ease-out;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    .spinner-container {
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+    .spinner-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border: 3px solid transparent;
+      border-top-color: #4caf50;
+      border-radius: 50%;
+      animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    }
+    .spinner-ring:nth-child(1) {
+      animation-delay: -0.45s;
+    }
+    .spinner-ring:nth-child(2) {
+      animation-delay: -0.3s;
+    }
+    .spinner-ring:nth-child(3) {
+      animation-delay: -0.15s;
+    }
+    .spinner-glow {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .loading-text {
+      margin-top: 24px;
+      color: #e0e0e0;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      animation: pulse-text 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.3; }
+      50% { transform: scale(1.05); opacity: 0.6; }
+    }
+    @keyframes pulse-text {
+      0% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-indicator">
+    <div class="spinner-container">
+      <div class="spinner-glow"></div>
+      <div class="spinner-ring"></div>
+      <div class="spinner-ring"></div>
+      <div class="spinner-ring"></div>
+    </div>
+    <div class="loading-text">Loading UniMarket...</div>
+  </div>
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script>
+    // Unregister any old active service workers to clear frozen cache
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+
+    window.removeLoader = function() {
+      const loader = document.getElementById('loading-indicator');
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(() => {
+          loader.remove();
+        }, 400);
+      }
+    };
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

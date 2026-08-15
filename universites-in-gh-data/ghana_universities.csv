@@ -1,0 +1,109 @@
+university_id,university_name,university_short_name,university_type,verified,campus_name,campus_town,campus_region,is_main_campus
+ug,University of Ghana,UG,public,True,Legon Campus,"Legon, Accra",Greater Accra,True
+ug,University of Ghana,UG,public,True,Korle-Bu Campus (College of Health Sciences),"Korle-Bu, Accra",Greater Accra,False
+ug,University of Ghana,UG,public,True,Accra City Campus,Accra Central,Greater Accra,False
+ug,University of Ghana,UG,public,True,Kumasi City Campus,"Adum, Kumasi",Ashanti,False
+ug,University of Ghana,UG,public,True,Takoradi City Campus,"Chapel Hill, Takoradi",Western,False
+knust,Kwame Nkrumah University of Science and Technology,KNUST,public,True,Main Campus,Kumasi,Ashanti,True
+knust,Kwame Nkrumah University of Science and Technology,KNUST,public,True,Obuasi Campus,Obuasi,Ashanti,False
+ucc,University of Cape Coast,UCC,public,True,South Campus (Old Site),Cape Coast,Central,True
+ucc,University of Cape Coast,UCC,public,True,North Campus (New Site),Cape Coast,Central,False
+uew,"University of Education, Winneba",UEW,public,True,Winneba North Campus (Central Administration),Winneba,Central,True
+uew,"University of Education, Winneba",UEW,public,True,Winneba Central Campus,Winneba,Central,False
+uew,"University of Education, Winneba",UEW,public,True,Winneba South Campus,Winneba,Central,False
+uew,"University of Education, Winneba",UEW,public,True,Ajumako Campus (College of Languages Education),Ajumako,Central,False
+uds,University for Development Studies,UDS,public,True,"Tamale Campus (Central Administration, Medicine)",Tamale,Northern,True
+uds,University for Development Studies,UDS,public,True,"Nyankpala Campus (Agriculture, Engineering)",Nyankpala,Northern,False
+uds,University for Development Studies,UDS,public,True,"Tamale City Campus (Business School, Graduate School)",Tamale,Northern,False
+cktutas,CK Tedam University of Technology and Applied Sciences,CKT-UTAS,public,False,Navrongo Campus,Navrongo,Upper East,True
+sdd-ubids,Simon Diedong Dombo University of Business and Integrated Development Studies,SDD-UBIDS,public,False,Wa Campus,Wa,Upper West,True
+aamusted,Akenten Appiah-Menka University of Skills Training and Entrepreneurial Development,AAMUSTED,public,True,"Kumasi Campus (Main, former COLTEK, Tanoso)",Kumasi,Ashanti,True
+aamusted,Akenten Appiah-Menka University of Skills Training and Entrepreneurial Development,AAMUSTED,public,True,Asante-Mampong Campus (former CAGRIC),Asante-Mampong,Ashanti,False
+upsa,"University of Professional Studies, Accra",UPSA,public,False,Main Campus,"Legon, Accra",Greater Accra,True
+umat,University of Mines and Technology,UMaT,public,True,Tarkwa Campus (Main),Tarkwa,Western,True
+umat,University of Mines and Technology,UMaT,public,True,"Essikado Campus (School of Railways and Infrastructure Development, SRID)","Essikado, Sekondi-Takoradi",Western,False
+uhas,University of Health and Allied Sciences,UHAS,public,True,Ho Campus,Ho,Volta,True
+uhas,University of Health and Allied Sciences,UHAS,public,True,Hohoe Campus,Hohoe,Volta,False
+uenr,University of Energy and Natural Resources,UENR,public,True,Sunyani Campus (Main),Sunyani,Bono,True
+uenr,University of Energy and Natural Resources,UENR,public,True,Nsoatre Campus (School of Engineering),Nsoatre,Bono,False
+uenr,University of Energy and Natural Resources,UENR,public,True,Dormaa Campus (School of Agriculture and Technology),Dormaa Ahenkro,Bono,False
+uesd,University of Environment and Sustainable Development,UESD,public,False,Somanya Campus,Somanya,Eastern,True
+gimpa,Ghana Institute of Management and Public Administration,GIMPA,public,False,Greenhill Campus,"Legon, Accra",Greater Accra,True
+gctu,Ghana Communication Technology University,GCTU,public,True,Tesano Campus (Main),"Tesano, Accra",Greater Accra,True
+gctu,Ghana Communication Technology University,GCTU,public,True,Abeka Campus,"Abeka, Accra",Greater Accra,False
+gctu,Ghana Communication Technology University,GCTU,public,True,Kumasi Campus,Kumasi,Ashanti,False
+gctu,Ghana Communication Technology University,GCTU,public,True,Nungua Learning Centre,"Nungua, Accra",Greater Accra,False
+gctu,Ghana Communication Technology University,GCTU,public,True,Ho Learning Centre,Ho,Volta,False
+gctu,Ghana Communication Technology University,GCTU,public,True,Koforidua Learning Centre,Koforidua,Eastern,False
+gctu,Ghana Communication Technology University,GCTU,public,True,Takoradi Learning Centre,Takoradi,Western,False
+atu,Accra Technical University,ATU,public-technical,False,Main Campus,Accra,Greater Accra,True
+btu,Bolgatanga Technical University,BTU,public-technical,False,Main Campus,Bolgatanga,Upper East,True
+cctu,Cape Coast Technical University,CCTU,public-technical,False,Main Campus,Cape Coast,Central,True
+kstu,Kumasi Technical University,KsTU,public-technical,False,Main Campus,Kumasi,Ashanti,True
+ktu,Koforidua Technical University,KTU,public-technical,False,Main Campus,Koforidua,Eastern,True
+ktu,Koforidua Technical University,KTU,public-technical,False,Somanya Campus,Somanya,Eastern,False
+tatu,Tamale Technical University,TaTU,public-technical,False,Main Campus,Tamale,Northern,True
+htu,Ho Technical University,HTU,public-technical,False,Main Campus,Ho,Volta,True
+ttu,Takoradi Technical University,TTU,public-technical,False,Main Campus,Takoradi,Western,True
+stu,Sunyani Technical University,STU,public-technical,False,Main Campus,Sunyani,Bono,True
+wtu,Wa Technical University (formerly Wa Polytechnic),WTU,public-technical,False,Main Campus,Wa,Upper West,True
+rmu,Regional Maritime University,RMU,public-regional,False,Main Campus,"Nungua, Accra",Greater Accra,True
+gij,Ghana Institute of Journalism,GIJ,public,False,Main Campus,Accra,Greater Accra,True
+gism,Ghana Institute of Surveying and Mapping,GISM,public,False,Main Campus,Accra,Greater Accra,True
+nafti,National Film and Television Institute,NAFTI,public,False,Main Campus,Accra,Greater Accra,True
+ashesi,Ashesi University,Ashesi,private,False,Berekuso Campus,Berekuso,Eastern,True
+central,Central University,Central,private,True,Miotso Campus (Main),"Miotso, near Dawhenya",Greater Accra,True
+central,Central University,Central,private,True,Mataheko Campus,"Mataheko, Accra",Greater Accra,False
+central,Central University,Central,private,True,Christ Temple Campus,"Ring Road West, Accra",Greater Accra,False
+central,Central University,Central,private,True,Kumasi Campus,Kumasi,Ashanti,False
+vvu,Valley View University,VVU,private,False,Oyibi Campus (Main),Oyibi,Greater Accra,True
+vvu,Valley View University,VVU,private,False,Techiman Campus,Techiman,Bono East,False
+vvu,Valley View University,VVU,private,False,Kumasi Campus,Kumasi,Ashanti,False
+pentvars,Pentecost University,PentVars,private,False,Sowutuom Campus,"Sowutuom, Accra",Greater Accra,True
+anu,All Nations University,ANU,private,False,Main Campus,Koforidua,Eastern,True
+presbyuc,"Presbyterian University, Ghana",PUC,private,True,Okwahu Campus (Main),Abetifi-Kwahu,Eastern,True
+presbyuc,"Presbyterian University, Ghana",PUC,private,True,Akuapem Campus,Akropong-Akuapem,Eastern,False
+presbyuc,"Presbyterian University, Ghana",PUC,private,True,Asante Akyem Campus,Agogo,Ashanti,False
+presbyuc,"Presbyterian University, Ghana",PUC,private,True,Tema Campus,"Community 11, Tema",Greater Accra,False
+presbyuc,"Presbyterian University, Ghana",PUC,private,True,Kumasi Campus (Santasi),"Santasi, Kumasi",Ashanti,False
+methodist,Methodist University Ghana,MUG,private,True,Dansoman Campus,"Dansoman, Accra",Greater Accra,True
+methodist,Methodist University Ghana,MUG,private,True,Wenchi Campus,Wenchi,Bono,False
+csuc,Christian Service University College,CSUC,private,False,Santasi Campus,"Santasi, Kumasi",Ashanti,True
+regent,Regent University College of Science and Technology,Regent,private,False,Main Campus,"Dansoman, Accra",Greater Accra,True
+wiuc,Wisconsin International University College,WIUC,private,False,Agbogba Campus,"Agbogba Junction, Accra",Greater Accra,True
+cug,Catholic University College of Ghana,CUG,private,False,Fiapre Campus,"Fiapre, Sunyani",Bono,True
+epuc,Evangelical Presbyterian University College,EPUC,private,False,Main Campus,Ho,Volta,True
+gbuc,Ghana Baptist University College,GBUC,private,False,Abuakwa Campus,"Abuakwa, Kumasi",Ashanti,True
+garden-city,Garden City University College,GCUC,private,False,Main Campus,Kumasi,Ashanti,True
+radford,Radford University College,Radford,private,True,East Legon Campus (Main),"East Legon, Accra",Greater Accra,True
+spiritan,Spiritan University College,Spiritan,private,False,Ejisu Campus,Ejisu,Ashanti,True
+data-link,Data Link Institute / University College,DLUC,private,False,Tema Campus,Tema,Greater Accra,True
+data-link,Data Link Institute / University College,DLUC,private,False,Cape Coast Campus,Cape Coast,Central,False
+mountcrest,Mountcrest University College,MCUC,private,False,Kanda Campus,"Kanda, Accra",Greater Accra,True
+ucaes,University College of Agriculture and Environmental Studies,UCAES,private,False,Bunso Campus,Bunso,Eastern,True
+kings,Kings University College,KUC,private,False,Aplaku Campus,"Aplaku Hills, Accra",Greater Accra,True
+maranatha,Maranatha University College,MUC,private,False,Sowutuom Campus,"Sowutuom, Accra",Greater Accra,True
+palm,Palm University College,PaUC,private,False,Manya Campus,Shai Hills,Greater Accra,True
+aucc,African University College of Communications,AUCC,private,False,Adabraka Campus,"Adabraka, Accra",Greater Accra,True
+ait,Accra Institute of Technology,AIT,private,False,Cantonments Campus,"Cantonments, Accra",Greater Accra,True
+iucg,"Islamic University College, Ghana",IUCG,private,False,East Legon Campus,"East Legon, Accra",Greater Accra,True
+knutsford,Knutsford University College,Knutsford,private,False,East Legon Campus,"East Legon, Accra",Greater Accra,True
+lancaster-gh,Lancaster University Ghana,LUG,private,False,Accra Campus,Accra,Greater Accra,True
+webster-gh,Webster University Ghana Campus,Webster,private,False,East Legon Campus,"East Legon, Accra",Greater Accra,True
+zenith,Zenith University College,ZUC,private,False,Main Campus,Accra,Greater Accra,True
+academic-city,Academic City University College,ACU,private,False,Haatso Campus,"Haatso, Accra",Greater Accra,True
+bluecrest,BlueCrest College / University College,BCUC,private,True,Kokomlemle Campus (Main),"Kokomlemle, Accra",Greater Accra,True
+catholic-institute,Catholic Institute of Business and Technology,CIBT,private,False,Accra North Campus,Accra North,Greater Accra,True
+anglican,Anglican University College of Technology,ANG.U.TECH,private,False,Nkoranza Campus,Nkoranza,Bono East,True
+anglican,Anglican University College of Technology,ANG.U.TECH,private,False,Teshie Campus,"Teshie, Accra",Greater Accra,False
+baptist,Ghana Baptist University College,GBUC2,private,False,Abuakwa Campus,Abuakwa-Kumasi,Ashanti,True
+christ-apostolic,Christ Apostolic University College,CAUC,private,False,Main Campus,Kumasi,Ashanti,True
+dominion,Dominion University College,DUC,private,False,Main Campus,Accra,Greater Accra,True
+ghana-christian,Ghana Christian University College,GCU,private,False,Main Campus,Accra,Greater Accra,True
+marshalls,Marshalls University College,MUC2,private,False,Main Campus,Accra,Greater Accra,True
+perez,Perez University College,Perez,private,False,Main Campus,Winneba,Central,True
+west-end,West End University College,WEUC,private,False,Main Campus,Accra,Greater Accra,True
+advanced-business,Advanced Business College,ABC,private,False,Main Campus,Accra,Greater Accra,True
+kaaf,KAAF University College,KAAF,private,False,Main Campus,Gomoa Fetteh Kakraba,Central,True
+heritage-christian,Heritage Christian University College,HCU,private,False,Main Campus,Amasaman,Greater Accra,True
+ensign,Ensign Global University College,Ensign,private,False,Kpong Campus,Kpong,Eastern,True

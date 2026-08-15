@@ -1,0 +1,16 @@
+name = "unimarket-admin"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# Workers AI — optional assist for ID document checks
+[ai]
+binding = "AI"
+
+[vars]
+UNIMARKET_API_URL = "https://unimarket-production-184e.up.railway.app"
+
+# Set secret: wrangler secret put ADMIN_API_KEY
+
+# Safety-net sweep for missed reviews (runs every minute; primary path is API trigger on submit)
+[triggers]
+crons = ["* * * * *"]

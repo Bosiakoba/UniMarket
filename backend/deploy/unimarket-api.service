@@ -1,0 +1,21 @@
+[Unit]
+Description=UniMarket API (ASP.NET Core)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=YOUR_LINUX_USER
+WorkingDirectory=/opt/unimarket/api
+ExecStart=/usr/bin/dotnet /opt/unimarket/api/UniMarket.Api.dll
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+Environment=ASPNETCORE_URLS=http://0.0.0.0:5080
+Environment=DOTNET_ENVIRONMENT=Production
+
+# Optional: load extra env vars from a file (same keys as .env)
+# EnvironmentFile=/opt/unimarket/api/.env
+
+[Install]
+WantedBy=multi-user.target

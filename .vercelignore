@@ -1,0 +1,46 @@
+# Flutter build artifacts
+
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+
+# IDE and editor files
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+test/
+coverage/
+
+# Documentation
+md/
+*.md
+
+# Cloudflare worker files
+cloudflare/
+
+# Platform-specific files
+android/
+ios/
+windows/
+linux/
+macos/
+
+# Firebase (keep config files)
+!firebase_options.dart
+
+# Git
+.git/
+.gitignore
+
+# Vercel
+.vercel/

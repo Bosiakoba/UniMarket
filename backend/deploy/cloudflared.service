@@ -1,0 +1,14 @@
+[Unit]
+Description=Cloudflare Tunnel (cloudflared)
+After=network-online.target unimarket-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=YOUR_LINUX_USER
+ExecStart=/usr/bin/cloudflared tunnel run YOUR_TUNNEL_NAME
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

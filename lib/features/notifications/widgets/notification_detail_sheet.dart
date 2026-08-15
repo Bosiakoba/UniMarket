@@ -1,0 +1,85 @@
+import 'package:flutter/material.dart';
+
+import '../../../core/models/app_notification.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/uni_button.dart';
+
+class NotificationDetailSheet extends StatelessWidget {
+  const NotificationDetailSheet({super.key, required this.notification});
+
+  final AppNotification notification;
+
+  /// Shows the notification detail sheet and returns `true` if the user
+  /// explicitly tapped the action button, or `false` if they dismissed it.
+  static Future<bool> show(
+    BuildContext context,
+    AppNotification notification,
+  ) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => NotificationDetailSheet(notification: notification),
+    );
+    return result ?? false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.paddingOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(notification.title, style: AppTypography.h3()),
+              ),
+              const SizedBox(width: 12),
+              Text(notification.timeLabel, style: AppTypography.caption()),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            notification.body,
+            style: AppTypography.body(color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 20),
+          if (notification.hasAction)
+            UniButton(
+              label: notification.actionLabel!,
+              onPressed: () => Navigator.of(context).pop(true),
+            )
+          else
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'Close',
+                style: AppTypography.bodyBold(color: AppColors.textPrimary),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

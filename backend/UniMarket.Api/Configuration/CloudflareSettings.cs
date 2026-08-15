@@ -1,0 +1,69 @@
+namespace UniMarket.Api.Configuration;
+
+public class CloudflareSettings
+{
+    public const string SectionName = "Cloudflare";
+
+    public string AccountId { get; set; } = string.Empty;
+
+    public string D1DatabaseId { get; set; } = string.Empty;
+
+    public string D1ApiToken { get; set; } = string.Empty;
+
+    public bool D1Enabled { get; set; }
+
+    public bool R2Enabled { get; set; }
+
+    /// <summary>When R2 is off, save uploads under data/uploads on the API server.</summary>
+    /// <summary>Dev-only. Production should use R2 (set false).</summary>
+    public bool AllowLocalUploadFallback { get; set; }
+
+    public string R2AccessKeyId { get; set; } = string.Empty;
+
+    public string R2SecretAccessKey { get; set; } = string.Empty;
+
+    public string R2BucketName { get; set; } = "unimarket-assets";
+
+    /// <summary>Example: https://&lt;account_id&gt;.r2.cloudflarestorage.com</summary>
+    public string R2Endpoint { get; set; } = string.Empty;
+
+    public bool IsD1Configured =>
+        D1Enabled &&
+        !string.IsNullOrWhiteSpace(AccountId) &&
+        !string.IsNullOrWhiteSpace(D1DatabaseId) &&
+        !string.IsNullOrWhiteSpace(D1ApiToken);
+
+    /// <summary>Public base URL for uploaded objects, e.g. https://pub-xxx.r2.dev</summary>
+    public string R2PublicBaseUrl { get; set; } = string.Empty;
+
+    /// <summary>Optional admin Worker endpoint, e.g. https://admin.example.workers.dev/api/ai-review.</summary>
+    public string AiReviewUrl { get; set; } = string.Empty;
+
+    public bool IsR2Configured =>
+        R2Enabled &&
+        !string.IsNullOrWhiteSpace(R2AccessKeyId) &&
+        !string.IsNullOrWhiteSpace(R2SecretAccessKey) &&
+        !string.IsNullOrWhiteSpace(R2BucketName) &&
+        !string.IsNullOrWhiteSpace(R2Endpoint) &&
+        !string.IsNullOrWhiteSpace(R2PublicBaseUrl);
+
+    public bool CanUploadFiles => IsR2Configured || AllowLocalUploadFallback;
+
+    public bool IsAiReviewConfigured => !string.IsNullOrWhiteSpace(AiReviewUrl);
+
+    public IReadOnlyList<string> GetR2MissingFields()
+    {
+        if (!R2Enabled)
+        {
+            return ["R2Enabled"];
+        }
+
+        var missing = new List<string>();
+        if (string.IsNullOrWhiteSpace(R2AccessKeyId)) missing.Add("R2AccessKeyId");
+        if (string.IsNullOrWhiteSpace(R2SecretAccessKey)) missing.Add("R2SecretAccessKey");
+        if (string.IsNullOrWhiteSpace(R2BucketName)) missing.Add("R2BucketName");
+        if (string.IsNullOrWhiteSpace(R2Endpoint)) missing.Add("R2Endpoint");
+        if (string.IsNullOrWhiteSpace(R2PublicBaseUrl)) missing.Add("R2PublicBaseUrl");
+        return missing;
+    }
+}
