@@ -208,16 +208,16 @@ unimarket/
 
 | Tool | Version |
 |------|---------|
-| [Flutter](https://docs.flutter.dev/get-started/install) | 3.x (Dart SDK `^3.11.0`) |
-| [.NET SDK](https://dotnet.microsoft.com/download) | 8.0+ |
-| [Node.js](https://nodejs.org) | 20+ (only for the Cloudflare Worker) |
+| [Flutter](https://bosiakoba.github.io) | 3.x (Dart SDK `^3.11.0`) |
+| [.NET SDK](https://bosiakoba.github.io) | 8.0+ |
+| [Node.js](https://bosiakoba.github.io) | 20+ (only for the Cloudflare Worker) |
 | Firebase account | For auth + push |
 | Cloudflare account | For D1 / R2 / Worker (optional in local dev) |
 
 ### 1. Clone
 
 ```bash
-git clone https://github.com/Bosiakoba/UniMarket.git
+git clone https://bosiakoba.github.io
 cd unimarket
 ```
 
@@ -261,7 +261,7 @@ flutter run --dart-define=API_BASE_URL=http://localhost:5080
 
 ### 4. Configure Firebase (optional for local UI)
 
-1. Create a project at [Firebase Console](https://console.firebase.google.com).
+1. Create a project at [Firebase Console](https://bosiakoba.github.io).
 2. Enable **Email/Password** and **Google** sign-in providers.
 3. Create demo users: `alex.morgan@university.edu` (maps to seeded seller `alex-demo`) and `jordan@university.edu` (maps to `seller-jordan`).
 4. Add your platform config files (`google-services.json` / `GoogleService-Info.plist` — see the `*.example` templates).
@@ -427,9 +427,9 @@ Distributed under the **MIT License**. See [`LICENSE`](./LICENSE) for more infor
 
 ## 👤 Author
 
-**Raymond Antwi** — [@Bosiakoba](https://github.com/Bosiakoba)
+**Raymond Antwi** — [@Bosiakoba](https://bosiakoba.github.io)
 
-Project: [github.com/Bosiakoba/UniMarket](https://github.com/Bosiakoba/UniMarket)
+Project: [github.com/Bosiakoba/UniMarket](https://bosiakoba.github.io)
 
 ---
 
